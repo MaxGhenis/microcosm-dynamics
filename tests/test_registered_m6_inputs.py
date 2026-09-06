@@ -625,6 +625,59 @@ def test__pad__refuses_an_input_whose_ids_are_not_the_documented_domain():
         )
 
 
+@pytest.mark.parametrize(
+    "malform",
+    [
+        pytest.param(lambda s: s.astype(bool), id="boolean"),
+        pytest.param(lambda s: s.astype(str), id="numeric-string"),
+        pytest.param(
+            lambda s: s.astype("float64") + 0.5, id="fractional-float"
+        ),
+        pytest.param(lambda s: s.astype("complex128"), id="complex"),
+    ],
+)
+def test__pad__refuses_a_non_integer_person_id_dtype(malform):
+    # Only an actual integer dtype is accepted before the pad reserves
+    # negative ids -- a coercion (`pd.to_numeric`) would let a digit string
+    # or a whole-number float pass silently. Not reachable through the
+    # adapter (which always emits int64); only a foreign caller hits this.
+    exposure = _fourteen_cell_exposure_with_ids()
+    exposure["person_id"] = malform(exposure["person_id"])
+    with pytest.raises(ValueError, match="integer dtype"):
+        factory._pad_below_25_projection_coverage(
+            factory.nchs_2010_external_rates(),
+            exposure,
+            boundary_year=2014,
+        )
+
+
+def test__pad__refuses_a_missing_person_id_value():
+    # A nullable-integer column can carry pd.NA without losing its integer
+    # dtype; that must still be refused before the sign comparison runs.
+    exposure = _fourteen_cell_exposure_with_ids()
+    exposure["person_id"] = exposure["person_id"].astype("Int64")
+    exposure.loc[0, "person_id"] = pd.NA
+    with pytest.raises(ValueError, match="missing"):
+        factory._pad_below_25_projection_coverage(
+            factory.nchs_2010_external_rates(),
+            exposure,
+            boundary_year=2014,
+        )
+
+
+def test__pad__accepts_every_valid_int64_id_unchanged():
+    # The dtype guard must not disturb a well-formed int64 id column -- every
+    # observed id survives into the padded frame alongside the two reserved
+    # pad ids. Fitted-probability invariance is covered separately by
+    # test__identity__does_not_move_a_single_fitted_probability.
+    exposure = _fourteen_cell_exposure_with_ids()
+    _, padded = factory._pad_below_25_projection_coverage(
+        factory.nchs_2010_external_rates(), exposure, boundary_year=2014
+    )
+    assert padded["person_id"].dtype.kind == "i"
+    assert set(exposure["person_id"]) <= set(padded["person_id"])
+
+
 def test__pad_disclosure__says_the_rows_are_invented_and_admit_nothing():
     text = factory.PAD_IDENTITY_DISCLOSURE
     assert "INVENTED" in text

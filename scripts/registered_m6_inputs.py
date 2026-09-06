@@ -534,16 +534,29 @@ def _pad_below_25_projection_coverage(
       fixed-width survey fields, so the observed key domain is
       ``>= 0`` and disjoint from any negative sentinel. That domain claim is
       not taken on trust: the observed ids are checked here, and a negative
-      observed id raises rather than silently colliding.
+      observed id raises rather than silently colliding. The check requires
+      an actual integer dtype first (``pandas.api.types.is_integer_dtype``,
+      which is ``False`` for bool, float, complex and object/string
+      columns) -- a digit string or a whole-number float never reaches the
+      sign comparison silently, and a missing id (NaN, or ``pd.NA`` under a
+      nullable integer dtype) raises rather than comparing.
     """
     import build_mortality_floors as mf
 
     if "person_id" in exposure.columns:
-        observed = pd.to_numeric(exposure["person_id"], errors="coerce")
+        observed = exposure["person_id"]
+        if not pd.api.types.is_integer_dtype(observed):
+            raise ValueError(
+                "mortality exposure person_id must be an integer dtype "
+                "before the (0, 24) pad reserves negative ids; got dtype "
+                f"{observed.dtype} (booleans, numeric strings, and "
+                "fractional/complex values are all rejected here)"
+            )
         if observed.isna().any():
             raise ValueError(
-                "mortality exposure person_id must be numeric before the "
-                "(0, 24) pad reserves negative ids"
+                "mortality exposure person_id has a missing (non-finite) "
+                "value; the (0, 24) pad cannot reserve negative ids over "
+                "an incomplete identity column"
             )
         if (observed < 0).any():
             raise ValueError(
