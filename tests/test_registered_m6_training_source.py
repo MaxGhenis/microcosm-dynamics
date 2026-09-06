@@ -225,11 +225,13 @@ def test__graph_training_kernel__accepts_the_serialized_records(
     assert declared == TRAINING_FIELDS
 
 
-def test__graph_training_kernel__refuses_numpy_identifiers(runtime, tmp_path):
+def test__graph_training_kernel__refuses_a_float_identifier(runtime, tmp_path):
+    # Not a numpy-scalar probe: json.dumps would fail on a numpy scalar
+    # before the kernel ever saw it. This feeds the parsed shape the kernel
+    # would see from a float-typed id -- the same shape a numpy scalar
+    # would round-trip to through JSON if it serialized at all.
     _, exposure = _padded_invented_inputs()
     records = training_records(exposure)
-    # A record whose id survived as a numpy scalar: json.dumps would fail, so
-    # feed the kernel the parsed shape it would see from a float-typed id.
     records[0]["person_id"] = float(records[0]["person_id"])
     with pytest.raises(ValueError, match="integer identifiers/years"):
         runtime._create_training(_write(tmp_path, records))
