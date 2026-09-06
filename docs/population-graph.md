@@ -233,11 +233,98 @@ constructor are copied into tuples first, so a caller who edits the list
 afterwards cannot leave the index describing rows the path no longer
 holds.
 
+## Two transitions in one execution
+
+`populace_dynamics.graph.two_transition` is a sibling of `runtime`, not a
+replacement. It calls `runtime.build_graph`, keeps every node, kernel and
+source it returns, and adds four nodes so that one compiled graph holds
+two chained transitions. The second period's rows are produced inside the
+same execution as the first's; nothing is serialized out of one run and
+fed into another, and no cross-run provenance is claimed.
+
+| node | version | what it does |
+|---|---|---|
+| `apply2` | `advance` | applies the *same* fitted law at the transition period's rows, rewriting `survives` and `death_probability` there and leaving every other period's values as they are |
+| `advance2` | its own | copies the transition period's survivors into the advanced period, with a declared mass receipt over a base that already holds two periods |
+| `age2` | `advance2` | the already-registered `dynamics.age-claim@1`, named by reference, claiming the copied rows' ages |
+| `earnings2` | `advance2` | carries the first transition's path onto the advanced rows from its own declared `scenario2` source |
+
+`fit` still runs once, at the fixed boundary year. Both application nodes
+read its artifact through the same declared edge, so there is no second
+model, no refit, and no drift. What differs between the two applications
+is the draw coordinate: the second asks the registered generator for the
+period after the transition, so the two transitions read disjoint
+coordinates of one keyed stream and can never share a draw.
+
+### Which keys move
+
+Adding `apply2` makes it the owner of `survives` and `death_probability`
+in the expanded version. Readers resolve to their version's owner, so the
+existing `earnings` and `evaluate` nodes now bind `apply2`'s key instead
+of `apply`'s and their keys move. Their values do not: `apply2` writes the
+incumbent value back at every period except the transition period, so the
+boundary year's survival and probabilities are bit-for-bit what a
+one-shot run produced, as are the fitted model, the first carried
+earnings path and the first mass receipt. `training`, `fit`, `initial`,
+`apply`, `advance`, `age` and `earnings-history` keep their keys.
+
+Editing the holdout file moves more than the gate. A structural node
+binds every ordinary member of the version it transforms, so `advance2`
+and everything in its version rekey with `evaluate`. Nothing they produce
+changes. Editing the `scenario2` file alone reaches `earnings2` and
+nothing else.
+
+A failed gate is a diagnostic, not a stop. The executor records the
+failure as a receipt and completes the later nodes, so the second
+transition is present in the manifest and in the report even when the
+first transition's fixture check has failed.
+
+### The second earnings carry
+
+`earnings2` receives the first transition's carried path as a typed
+artifact edge and its own supplied values as a separate source. It
+requires the prior path to be carried through the transition period, and
+the source to be an uncarried path that closes nobody and holds only
+scenario rows at the one advanced period.
+
+Every row the prior path holds is kept. The only rows added are supplied
+values for people who survived this transition, and every survivor must
+have one. A supplied row for anybody else — a person already closed, or
+one who died in this transition — is withheld, counted in the receipt
+under its reason, and never appended. Withholding is what lets the
+all-dead case have a source at all: a path needs at least one row, so the
+source carries decedent rows, and the output still creates no new
+person-period. New decedents are closed at the transition period, which
+is where their last row sits, and prior closures are merged rather than
+replaced.
+
+Two terminal cases are ordinary results. When nobody survives the second
+transition, the expansion adds no row and no period group, the mass
+receipt shows the advanced period absent, and the retained history is
+untouched. When nobody reaches the transition period at all, the second
+application finds no active rows and writes the incumbents straight back.
+
+### What a run writes
+
+Beside the manifest, report, fitted model and entity tables, the runner
+writes the final carried path, the first transition's carried path, a
+`population.csv` holding every retained row with the person, age, sex and
+weight the graph actually carries, and one `period-<year>.csv` per period.
+
+The holdout gate covers the first transition only. Nothing evaluates the
+second period against held-out outcomes, and no second-period accuracy is
+claimed. What the tests establish about it is engineering parity with
+directly coordinated calls to the same mortality and ageing operations
+under the same fitted model and the same keyed uniforms. A predictive
+claim over two periods needs genuinely appropriate later outcomes, which
+this slice does not have.
+
 ## Tests
 
 ```sh
 python -m pytest -q tests/test_graph_mortality.py \
-  tests/test_graph_earnings_history.py \
+  tests/test_graph_earnings_history.py tests/test_graph_earnings_index.py \
+  tests/test_graph_two_transition.py \
   tests/test_m6_engine_refit.py tests/test_m6_engine_steps.py
 ```
 
@@ -273,3 +360,17 @@ also pins the arithmetic — a cumulative total carried row by row and the
 prefix sum disagree on a cancelling path, and the prefix sum is the
 answer the pre-index code gave — and counts what a lookup touches on a
 1000-person, 35-period path, which is where the index earns its keep.
+
+`tests/test_graph_two_transition.py` covers the chained graph: the second
+period against `apply_mortality` and `advance_age` called directly at
+both periods, three non-default streams, the two transitions never
+sharing a draw, person/period/age/sex/weight/survival membership, the
+preserved first transition and the exact set of keys that move, the
+multiyear mass receipt, the second carry's retained history, merged
+closures, withheld rows counted by reason, the known-zero / unknown /
+absent distinction, the accumulator, a signed path whose second period
+cancels a total to a known zero, both terminal cases, a failed gate that
+still lets the later nodes finish, the files the runner writes, and
+thirteen refusals including a model fitted at another boundary, a person
+closed in the prior path and still active, and advanced rows that
+disagree with the survivors.
