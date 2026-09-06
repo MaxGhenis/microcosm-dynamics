@@ -1,0 +1,66 @@
+{
+  "artifact": "gate3_retrodiction_floors_v1.json",
+  "status": "SOURCE_INPUT_DIGESTS",
+  "source_inputs": [
+    {
+      "path": "data/external/ssa_claim_ages_2014supplement.json",
+      "sha256": "b88e45a08909f0f88a0ff37074c757891759ec988fd7e9fe14362eebd0abe462",
+      "bytes": 44368,
+      "official_url": "https://www.ssa.gov/policy/docs/statcomps/supplement/2014/6b.html"
+    },
+    {
+      "path": "data/external/ssa_claim_ages_2023supplement.json",
+      "sha256": "f731c9a6b8f9b1727d28fbdd49df6ec700f8762dd4cea30fa1a043c52a7f5b73",
+      "bytes": 67066,
+      "official_url": "https://www.ssa.gov/policy/docs/statcomps/supplement/2023/6b.html"
+    },
+    {
+      "path": "data/external/ssa_covered_earnings_calibration_targets_vintage2.json",
+      "sha256": "fe018587a5b32188088078ef557dceca67f26352ebfc424e1d1622416cbdcf55",
+      "bytes": 732787,
+      "official_url": "https://www.ssa.gov/policy/docs/statcomps/supplement/2025/4b.html"
+    },
+    {
+      "path": "data/external/ssa_level_anchors_supplement2025_trustees2026_vintage1.json",
+      "sha256": "adc782a1a11c50969103c125a82b1539a7017241662d545d86bc6fc9227730c1",
+      "bytes": 87432,
+      "official_url": "https://www.ssa.gov/policy/docs/statcomps/supplement/2025/"
+    },
+    {
+      "path": "data/external/di_asr_2023/tables.json",
+      "sha256": "1af9ad874cfc7b464a9279ae62e08ba51206a843f84622c92332b63beec9aa36",
+      "bytes": 26356,
+      "official_url": "https://www.ssa.gov/policy/docs/statcomps/di_asr/2023/"
+    },
+    {
+      "path": "data/external/ssa_cola_history.json",
+      "sha256": "12da7f0e0d33fc53eaa31567d86c3cc035a49feefc2e4695bceea3379c2a38db",
+      "bytes": 2942,
+      "official_url": "https://www.ssa.gov/oact/cola/colaseries.html"
+    },
+    {
+      "path": "data/external/ssa_effective_interest_rates_2014.json",
+      "sha256": "fe73bc555925c627d9a0cdd10e80a24b8ce9f1ec3c23c5387bdff82c8f267d8b",
+      "bytes": 5116,
+      "official_url": "https://www.ssa.gov/oact/ProgData/effectiveRates.html"
+    },
+    {
+      "path": "data/external/ssa_tr_2014_vi_g8.source.html",
+      "sha256": "0cebeb4774112932f43432a8f9e60e1981a5506459340cb31ad2144121f6bc26",
+      "bytes": 78120,
+      "official_url": "https://www.ssa.gov/oact/TR/2014/lr6f8.html"
+    },
+    {
+      "path": "data/external/snapshots/ssa_level_anchors_vintage1/supplement2025_4a.html",
+      "sha256": "b0c779c488105a30e7f51f75a2c812a8a3f8098b2b8030f87d3210d2536639e0",
+      "bytes": 174613,
+      "official_url": "https://www.ssa.gov/policy/docs/statcomps/supplement/2025/4a.html"
+    },
+    {
+      "path": "runs/anchor_context_report_v1.json",
+      "sha256": "1ff3f0a04d9a511079e7b1773e01de48a0f4a9b1ec405d4601d410eb88c2cb34",
+      "bytes": 47935,
+      "official_url": "in-repository committed evidence artifact"
+    }
+  ]
+}
