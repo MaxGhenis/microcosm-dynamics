@@ -2892,11 +2892,49 @@ def draft_fragment(
     return "\n".join(lines) + "\n"
 
 
-def candidate_reference_fence(v2: dict) -> dict:
+def v1_answer_key_census(v1: dict, deviations: dict) -> dict:
+    """Measure what v1 publishes, since v1 has no F2_panel_deviations.
+
+    The fourth sitting found that the fence clause named a path v1 does
+    not have.  v1 is not cleaner than v2/v3 for that reason -- it is
+    leakier, by a different path -- so the clause states the measured
+    census rather than a family resemblance.
+    """
+    series = {
+        cell: entry["resolution_vintage_series"]
+        for cell, entry in v1["reference_values"].items()
+    }
+    years = sorted({int(year) for s in series.values() for year in s})
+    n_values = sum(len(s) for s in series.values())
+    n_after = sum(
+        1 for s in series.values() for year in s if int(year) > T_STAR
+    )
+    n_realized = 0
+    n_reproduced = 0
+    for cell, entry in deviations.items():
+        for row in entry["by_horizon"].values():
+            n_realized += 1
+            stored = series.get(cell, {}).get(str(row["target_year"]))
+            if stored is not None and abs(stored - row["realized"]) < 1e-12:
+                n_reproduced += 1
+    return {
+        "v1_has_an_F2_panel_deviations_block": ("F2_panel_deviations" in v1),
+        "path": "reference_values[cell].resolution_vintage_series",
+        "n_cells": len(series),
+        "n_values": n_values,
+        "n_values_after_t_star": n_after,
+        "year_span": [years[0], years[-1]],
+        "n_realized_in_the_v3_panel": n_realized,
+        "n_reproduced_exactly_by_v1": n_reproduced,
+    }
+
+
+def candidate_reference_fence(v2: dict, v1: dict, deviations: dict) -> dict:
     """v2's fence, re-executed, plus the verifier's two scope limits."""
     fenced = v2b.build_fenced_reference()
     module = v2b.deployed_module_fence_check()
     committed = v2["candidate_reference_fence"]
+    census = v1_answer_key_census(v1, deviations)
     return {
         "law": v2b.FENCE_LAW,
         "answers": (
@@ -2910,17 +2948,29 @@ def candidate_reference_fence(v2: dict) -> dict:
             == committed["fenced_reference"]["rows_sha256"]
         ),
         "deployed_module_fence_check": module,
+        "v1_publishes_the_answer_key_by_another_path": census,
         "also_unreadable_at_run_time": (
             "VERIFIER SECTION 1.5, ITEM 1. The fence as v2 built it is "
             "a property of an OBJECT, not of a process: nothing makes "
             "ssa_claim_ages_2023supplement.json unreadable, and the "
-            "committed floor artifacts are worse -- v1, v2 and v3 each "
-            "publish all 108 realized values in "
-            "F2_panel_deviations[cell].by_horizon[h].realized, so a "
-            "candidate process could obtain the answer key with one "
-            "json.load on runs/. The registration clause therefore "
-            "names FOUR objects, not one, as unreadable from a "
-            "candidate process: "
+            "committed floor artifacts are worse. v2 and v3 each "
+            f"publish all {census['n_realized_in_the_v3_panel']} "
+            "realized values at "
+            "F2_panel_deviations[cell].by_horizon[h].realized. v1 has "
+            "NO F2_panel_deviations block, and is leakier rather than "
+            "cleaner: it publishes "
+            "reference_values[cell].resolution_vintage_series, "
+            f"{census['n_values']} values over {census['n_cells']} "
+            f"cells spanning {census['year_span'][0]}-"
+            f"{census['year_span'][1]}, of which "
+            f"{census['n_values_after_t_star']} fall after T*, and "
+            "those series reproduce "
+            f"{census['n_reproduced_exactly_by_v1']} of the "
+            f"{census['n_realized_in_the_v3_panel']} realized values "
+            "exactly. A candidate process could therefore obtain the "
+            "answer key from any of the three with one json.load on "
+            "runs/. The registration clause names FOUR objects, not "
+            "one, as unreadable from a candidate process: "
             "data/external/ssa_claim_ages_2023supplement.json, "
             "runs/gate3_retrodiction_floors_v1.json, "
             "runs/gate3_retrodiction_floors_v2.json and "
@@ -3278,7 +3328,7 @@ def build() -> dict:
     )
     passrule = pass_rule_draft(recommended, rolling)
     partition = cell_partition(registry, recommended)
-    fence = candidate_reference_fence(v2)
+    fence = candidate_reference_fence(v2, v1, deviations)
     cap_block = power_cap_block(deviations, v2_dev, bounds, recommended)
     defect = description_defect((REPO / "gates.yaml").read_text())
     margins = not_certified_margins(v2, recommended, exposure, partition)

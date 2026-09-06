@@ -1153,6 +1153,87 @@ def test_the_realized_values_are_still_published_here(artifact):
     assert len(published) == 108
 
 
+def _strings(node):
+    """Yield every string in a parsed YAML/JSON tree."""
+    if isinstance(node, str):
+        yield node
+    elif isinstance(node, dict):
+        for value in node.values():
+            yield from _strings(value)
+    elif isinstance(node, list):
+        for value in node:
+            yield from _strings(value)
+
+
+def test_the_v1_leak_census_is_measured_not_asserted(artifact):
+    """The fence clause named a path v1 does not have.
+
+    Fourth-sitting finding: ``also_unreadable_at_run_time`` claimed that
+    v1, v2 and v3 each publish the 108 realized values at
+    ``F2_panel_deviations[cell].by_horizon[h].realized``.  v1 has no such
+    block.  It is not cleaner for that -- it publishes a wider answer key
+    at another path -- so the clause now carries a census recomputed
+    here, from v1's own bytes, by a route that does not use the builder.
+    """
+    v1 = json.loads(V1_ARTIFACT.read_text())
+    fence = artifact["candidate_reference_fence"]
+    census = fence["v1_publishes_the_answer_key_by_another_path"]
+
+    assert "F2_panel_deviations" not in v1
+    assert census["v1_has_an_F2_panel_deviations_block"] is False
+    assert census["path"] == (
+        "reference_values[cell].resolution_vintage_series"
+    )
+
+    series = {
+        cell: entry["resolution_vintage_series"]
+        for cell, entry in v1["reference_values"].items()
+    }
+    years = sorted({int(year) for s in series.values() for year in s})
+    assert census["n_cells"] == len(series)
+    assert census["n_values"] == sum(len(s) for s in series.values())
+    assert census["year_span"] == [years[0], years[-1]]
+    assert census["n_values_after_t_star"] == sum(
+        1 for s in series.values() for year in s if int(year) > T_STAR
+    )
+
+    realized = [
+        (cell, row["target_year"], row["realized"])
+        for cell, entry in artifact["F2_panel_deviations"].items()
+        for row in entry["by_horizon"].values()
+    ]
+    assert census["n_realized_in_the_v3_panel"] == len(realized)
+    assert census["n_reproduced_exactly_by_v1"] == sum(
+        1
+        for cell, year, value in realized
+        if abs(series.get(cell, {}).get(str(year), 1e9) - value) < 1e-12
+    )
+
+    # the clause states the census rather than a family resemblance, and
+    # every number in it is one the census measured
+    text = fence["also_unreadable_at_run_time"]
+    assert "NO F2_panel_deviations block" in text
+    assert census["path"] in text
+    for value in (
+        census["n_cells"],
+        census["n_values"],
+        census["n_values_after_t_star"],
+        census["n_realized_in_the_v3_panel"],
+        census["year_span"][0],
+        census["year_span"][1],
+    ):
+        assert str(value) in text, value
+
+    # and both fragment texts carry the corrected clause, not the old one
+    for cure in ("A", "B"):
+        block = yaml.safe_load(
+            artifact["draft_gates_yaml_fragment"][f"text_cure_{cure}"]
+        )
+        carried = [s for s in _strings(block) if census["path"] in s]
+        assert len(carried) == 1, cure
+        assert "NO F2_panel_deviations block" in carried[0], cure
+
+
 # --------------------------------------------------------------------------
 # the sensitivity grid and the margins
 # --------------------------------------------------------------------------
