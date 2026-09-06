@@ -438,6 +438,13 @@ def earnings_params(*, unit, price_basis, calendar, sign_domain, accumulate):
     earnings_module.parse_price_basis(price_basis)
     if type(accumulate) is not bool:
         raise ValueError("the earnings accumulate flag must be a boolean")
+    if accumulate and earnings_module.parse_price_basis(price_basis)[0] != (
+        "fixed"
+    ):
+        raise ValueError(
+            f"a {price_basis!r} path mixes price periods; "
+            "no cumulative column is defined over it"
+        )
     return {
         "earnings_unit": unit,
         "earnings_price_basis": price_basis,
@@ -911,7 +918,7 @@ def build_graph(
             Node(
                 "earnings-history",
                 "dynamics.earnings.history@1",
-                population="initial",
+                population="advance",
                 sources=("earnings",),
                 inputs=(Slice(OBS, ("age",)),),
                 params=terms,
