@@ -167,7 +167,39 @@ by classifying the whole collected suite (5905 items) with
 `tests/conftest.py:_classify_test_module`: every tier count matches the
 manifest.
 
-## Next
+## Documentation
 
-- [ ] Docs.
-- [ ] Cold/warm witness, module closure, key comparison, report.
+`docs/population-graph.md` gains a "Two transitions in one execution"
+section: the four nodes and their versions, which keys move and why, what
+the second carry requires and withholds, the two terminal cases, and what
+a run writes. It states in the doc, not only in the report, that the
+holdout gate covers the first transition only.
+
+## Evidence
+
+All of it lives beside this file in `R`. Nothing was pushed, no PR was
+opened, nothing was merged or deployed.
+
+- `microcosm-dynamics-two-transition-verify/probe_two_expand.py` and its
+  two byte-identical receipts — the compiler probe, above.
+- `…-verify/two_transition_witness.py` and `…-replay.py` — the cold/warm
+  cross-process witness on both cores. Kernel entries are counted on the
+  registered class's own bound `run`, reading the bound instance out of
+  the frame, so no kernel is wrapped or subclassed and the identity the
+  executor resolves is the identity counted.
+- `…-verify/two_transition_closure.py` — every loaded module matched to a
+  Git blob, the frozen modules compared between base and head, and both
+  core exports re-verified file by file.
+- `…-verify/two_transition_explain.py` — the core's own
+  `explain_html` over the compiled graph and the run manifest, a small
+  Mermaid sketch from the compiled graph's own maps, and the key receipt.
+
+## Done
+
+- [x] Compiler probe on both cores, before writing the runner.
+- [x] Sibling module, sibling fixture module.
+- [x] 49 focused tests; 123 existing checks; both cores; 172 passed,
+      0 skipped, 0 failures, 0 errors on each.
+- [x] Cold/warm witness, module closure, byte preservation, key
+      comparison, real graph HTML and diagram.
+- [x] Report.
