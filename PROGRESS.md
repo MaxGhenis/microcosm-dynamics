@@ -175,10 +175,18 @@ module docstring, which silently repointed five of the six while every test
 stayed green. The note was moved below the constants: lines 1-238 are now
 byte-identical to the accepted head and the first changed line is 318.
 
+- [x] Report written to `R/dynamics-mortality-identity-REPORT.md`
+      (sha256 `41153ff0e212dbb40025fc414af50744f7c930497cc8760759e679451bdf1a23`)
+      and `R/dynamics-mortality-identity-REPORT.json`.
+
 ## Next
 
-- [ ] Report to `R/dynamics-mortality-identity-REPORT.md` / `.json`.
-- Root reviews, then sends to Fable. Nothing is pushed.
+Nothing in this lane. Root reviews, then sends to Fable. Nothing is pushed.
+
+Two items are root's, not this lane's, and are argued in §6 of the report:
+the birth-evidence seal's three missing graph exclusions (and whether
+`scripts/registered_m6_inputs.py` should join them), and a full-suite tier
+collection to confirm the `tier_counts.json` absolute total.
 
 ## Standing limits, restated
 
