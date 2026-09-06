@@ -237,24 +237,32 @@ holds.
 
 `populace_dynamics.graph.two_transition` is a sibling of `runtime`, not a
 replacement. It calls `runtime.build_graph`, keeps every node, kernel and
-source it returns, and adds four nodes so that one compiled graph holds
-two chained transitions. The second period's rows are produced inside the
-same execution as the first's; nothing is serialized out of one run and
-fed into another, and no cross-run provenance is claimed.
+source it returns, and adds up to four nodes so that one compiled graph
+holds two chained transitions: a mortality-only chain — the shape the
+module's own test pins — adds three nodes and two new kernels; supplying
+earnings terms adds the fourth node, a third new kernel, and one new
+source. The second period's rows are produced inside the same execution
+as the first's; nothing is serialized out of one run and fed into
+another, and no cross-run provenance is claimed.
 
 | node | version | what it does |
 |---|---|---|
 | `apply2` | `advance` | applies the *same* fitted law at the transition period's rows, rewriting `survives` and `death_probability` there and leaving every other period's values as they are |
-| `advance2` | its own | copies the transition period's survivors into the advanced period, with a declared mass receipt over a base that already holds two periods |
+| `advance2` | its own | copies the transition period's survivors into the advanced period — carrying their already-written `survives` and `death_probability` forward unchanged from the transition period's source row, not a new hazard evaluation — with a declared mass receipt over a base that already holds two periods |
 | `age2` | `advance2` | the already-registered `dynamics.age-claim@1`, named by reference, claiming the copied rows' ages |
 | `earnings2` | `advance2` | carries the first transition's path onto the advanced rows from its own declared `scenario2` source |
 
 `fit` still runs once, at the fixed boundary year. Both application nodes
 read its artifact through the same declared edge, so there is no second
-model, no refit, and no drift. What differs between the two applications
-is the draw coordinate: the second asks the registered generator for the
-period after the transition, so the two transitions read disjoint
-coordinates of one keyed stream and can never share a draw.
+model, no refit, and no drift. Rewriting the transition period's columns
+does not mean their values move: under the shipped fitted fixture every
+row's `death_probability` is the same value regardless of age or sex, so
+`apply2`'s rewrite reproduces it bit-for-bit there, and only `survives` —
+the drawn outcome — can differ from the one-shot run, which it does for a
+single person in the default synthetic run. What differs between the two
+applications is the draw coordinate: the second asks the registered
+generator for the period after the transition, so the two transitions
+read disjoint coordinates of one keyed stream and can never share a draw.
 
 ### Which keys move
 
@@ -265,8 +273,16 @@ of `apply`'s and their keys move. Their values do not: `apply2` writes the
 incumbent value back at every period except the transition period, so the
 boundary year's survival and probabilities are bit-for-bit what a
 one-shot run produced, as are the fitted model, the first carried
-earnings path and the first mass receipt. `training`, `fit`, `initial`,
-`apply`, `advance`, `age` and `earnings-history` keep their keys.
+earnings path and the first mass receipt. `evaluate`'s report payload is
+included in that: it is byte-identical to the one-shot run's, sha256
+`afa763f26ea62dea6b751aa8e3190fc1462373688cabe9ea635539ddc1d852cc` on
+both pinned cores. What moves alongside `evaluate`'s key is its *receipt*,
+not its value: the node's `tolerance_writers` entry for `survives` and
+`death_probability` gains `apply2` alongside `apply`, and because an
+opaque artifact's storage address is derived from its owning node's key,
+`evaluate`'s stored artifact address moves too, even though the bytes at
+that address do not change. `training`, `fit`, `initial`, `apply`,
+`advance`, `age` and `earnings-history` keep their keys.
 
 Editing the holdout file moves more than the gate. A structural node
 binds every ordinary member of the version it transforms, so `advance2`
@@ -375,6 +391,6 @@ closures, withheld rows counted by reason, the known-zero / unknown /
 absent distinction, the accumulator, a signed path whose second period
 cancels a total to a known zero, both terminal cases, a failed gate that
 still lets the later nodes finish, the files the runner writes, and
-fourteen refusals including a restated history coordinate, a model
+seventeen refusals including a restated history coordinate, a model
 fitted at another boundary, a person closed in the prior path and still
 active, and advanced rows that disagree with the survivors.
