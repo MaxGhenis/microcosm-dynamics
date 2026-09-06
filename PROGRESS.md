@@ -1,3 +1,27 @@
+# Current root disposition — September 6, 2026
+
+The mortality identity increment is complete as local engineering work at
+source/test revision `3cff20def97e793394db0225cd6264b180463d09`. Root reviewed
+adapter blob `c9cc6f1e71fab96ef830d7e7b434ee216f1a96c8`; Fable 5.1 accepted
+the final source and identity pin. The earlier instruction below to review
+`c7f4450` is historical and superseded. The signed-ID guard and line-anchor
+corrections are included, and the historical source seal passes.
+
+Root evidence: 66 focused tests before pinning, 9 post-commit seal tests, and
+the tier-policy test after full collection of 5,940 items. Collection evidence
+records `3acb92d`; the sole next commit `3cff20d` refreshes the tier manifest,
+which was then tested against a new full collection. No full test-suite run
+is claimed. The previous lane's 307/315 test-count discrepancy is unresolved;
+these root checks are the evidence used here.
+
+Real mortality fitting remains pending scientific source decisions on weight
+universes, non-exact death years and nonresponse censoring. No PSID microdata,
+forecast, historical run, registered gate or sealed corpus was changed. No
+push, remote merge or publication occurred. Next work must address those
+source decisions before a genuine fit; this journal is not fit approval.
+
+---
+
 # Review-fixes lane: R2-R5 on the mortality-identity capture
 
 **Scope.** Fable review
