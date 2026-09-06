@@ -175,12 +175,12 @@ module docstring, which silently repointed five of the six while every test
 stayed green. The note was moved below the constants: lines 1-238 are now
 byte-identical to the accepted head and the first changed line is 318.
 
-- [x] Report written to `R/dynamics-mortality-identity-REPORT.md`
-      (sha256 `cdfe94332c38c3ca73b7f6ceaaf583898880195ecbcc214497bf31367b1d05c9`)
-      and `R/dynamics-mortality-identity-REPORT.json` (sha256
-      `34497200ca123a32305b471f64ff0f9e49e06f4963e1649570df3d1b62e9bbfb`).
-      Both name `d8277a6` as this lane's HEAD; every measurement in the
-      report was taken at `396a8a1`, which differs only by this file.
+- [x] Report written to `R/dynamics-mortality-identity-REPORT.md` and
+      `R/dynamics-mortality-identity-REPORT.json`. The reports carry this
+      branch's final tip; the hashes are deliberately **not** repeated here,
+      because a journal that hashes a report that names the journal's commit
+      cannot settle. Every measurement in the reports was taken at
+      `396a8a1`, the last commit that touched source or tests.
 
 ## Next
 
