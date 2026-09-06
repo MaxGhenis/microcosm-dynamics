@@ -1,72 +1,67 @@
-# Earnings-history completion — journal
+# Two transitions in one graph — journal
 
-Child of `6fcbf0a2a5ef3231d8d82016813fcf5b9af89c2d`
-(`earnings-history-20260906`), branch `history-completion-20260906`,
-created after `git fetch origin`, a clean parent worktree, and a branch
-check. Nothing pushed; no PR, merge, or deployment. No genuine PSID or
-CPS file opened, no forecast, no statutory calculation, no earnings
-model call. Older worktrees, the Social Security provenance, `gates.yaml`
-and `runs/` untouched.
+Branch `two-transition-20260906` in
+`/Users/maxghenis/PolicyEngine/_worktrees/microcosm-dynamics-two-transition-20260906`,
+created from the upstream base `origin/master`
+(`96a585511a9bbdaedb7f1d634a5e44269f22d23e`, re-fetched and unmoved) and
+then fast-forwarded to the approved dependent head
+`2b3c426d344acabcec1f8ba7e6cc18f0ba390d4d`. Every earlier worktree and
+branch is untouched — `history-completion-20260906`,
+`earnings-history-20260906`, `graph-integration-20260905`, the
+architecture-review detached checkout, and `cross-engine-pia` all still
+point where they did.
+
+Nothing is pushed. No PR, no merge, no deploy. No genuine PSID, CPS or
+candidate file is opened; every input is hand-specified. `runtime.py`,
+`earnings.py`, `model.py`, both pinned cores, the Social Security
+provenance campaigns and `gates.yaml` are not edited.
+
+## Controlling documents
+
+- `R/microcosm-dynamics-continuation-root-plan-v2.md`
+  sha256 `55a5b0e9f979ac45568366541d27bb53131c1c62e4befcaf40039e5186997804`
+- `R/microcosm-dynamics-continuation-plan-v2-fable51-review.md`
+  sha256 `a10e3907c66f433e619ecaa52882d9a361ff4bc87b61499ef7ef59431e18b403`
+- `R/microcosm-dynamics-continuation-root-plan-approval.json` — both
+  hashes match the files on disk, verdict `APPROVE_LOCAL_IMPLEMENTATION`.
+
+`R = /Users/maxghenis/architecture-reviews/microcosm-20260904`.
+
+## State
+
+Environment verified, not installed:
+
+- `R/dynamics-extra-env/bin/python` → CPython 3.14.4, numpy 2.5.2,
+  pandas 3.0.5. Its `microcosm` is the `3ff92b0a` export.
+- `/tmp/policyengine-command-runs/849552ad36e8/dynamics-integration-core-3ff92b0a`
+  — 142/142 files hash to `dynamics-integration-core-3ff92b0a-export.json`,
+  whose head is `3ff92b0aea14407d09479bff5623dc7d1a92d008`.
+- `/tmp/policyengine-command-runs/849552ad36e8/dynamics-integration-core-b55a583f`
+  — 148/148 files hash to `dynamics-integration-core-b55a583f-export.json`,
+  whose head is `b55a583f078b3d182c65980f24a4d5a119f169bc`.
+- The two cores differ in `__init__.py`, `codecs.py`, `executor.py`,
+  `keys.py`, `manifest.py` and `README.md`; `b55` also adds
+  `attachments.py` and `availability.py`. `decl.py` and `population.py`
+  are byte-identical between them.
 
 ## Done
 
-- [x] Read the build prompt, `REPORT.md`, and the Fable 5.1 review
-- [x] **Index.** `history()` sorted every row in the path on each call
-      and `at()` walked every row; the graph calls both once per output
-      row. The artifact is immutable, so it now builds a person index and
-      a coordinate index inside the pass that validates the rows.
-      `prefix_total` still sums that person's own prefix rows with
-      `sum`, not a running total, so its arithmetic is unchanged.
-- [x] **Mutable inputs.** Rows and closures are copied into tuples before
-      anything is indexed off them. Editing the list afterwards edits the
-      caller's list, never the artifact.
-- [x] **Reference comparison.** A copy of the pre-index `history`, `at`,
-      `people`, `closed_people`, `prefix_total` and `known_total` runs
-      beside the artifact's own over signed, known-zero, unknown, absent,
-      cancelling and unordered paths, probed at people and periods no
-      path holds.
-- [x] **Cost evidence, not timings.** 1000 people × 35 periods: a pass
-      visits 38,000 rows where it used to visit 105,000,000 and sort all
-      35,000 rows 2,000 times. One index build, measured.
-- [x] **Docs.** Every person needs an observed row; a pre-closed or
-      pre-carried source is refused; the `absent` origin sentinel is in
-      the state table; "visible partial failure" replaced by what a
-      refusal actually leaves.
-- [x] **Fresh-process warm witness.** Two separate processes against one
-      store: all nine nodes hit, all nine kernels called zero times, all
-      data and artifact bytes equal. Run under both cores.
-- [x] **Module closure matched to Git.** 99/99 under `3ff92b0a`,
-      101/101 under `b55a583f`.
-- [x] **123 checks, 0 skips, on both cores.** 33 graph mortality + 13
-      `test_m6_engine_refit.py` + 11 `test_m6_engine_steps.py` (the
-      predecessor's 57) + 49 history + 17 new. The 24 engine checks were
-      read first: both modules are synthetic and open no file.
-- [x] **Tier count.** `unit` 1645 → 1662, the exact 17 added cases.
-- [x] `R/microcosm-dynamics-history-completion-REPORT.md` / `.json`,
-      test logs and JUnit XML, witness and closure evidence, index
-      evidence, preservation evidence, and a separate launcher capture.
-
-## Preserved, and what moved
-
-The default run is byte-identical to the parent's at `6fcbf0a` —
-including `report.json` and every node key — because `runtime.py` was not
-edited. Under an earnings run exactly two node keys move,
-`earnings-history` and `earnings`, since `earnings.py` enters only those
-two kernels' hashes through `extra=`. Every mortality node, both seeded
-ones included, is unchanged, and all data outputs are byte-identical.
-
-One public behaviour change: `rows` and `closed` read back as tuples
-however they were passed, so an artifact built from lists is now equal
-to and hashes with the tuple-built one. Serialized bytes, values,
-statuses, origins, units and closures are unchanged.
-
-## Not done, deliberately
-
-No new model, no multi-period runner, no larger graph run. The graph
-still advances one period, every future value is a declared fixture
-input, and the 1000-person evidence is artifact-level. Core
-compatibility is observed for two exact revisions, not certified.
+- [x] Read the plan, the Fable 5.1 review and the approval; verified both
+      recorded sha256 values against the files.
+- [x] Read the accepted `R/microcosm-dynamics-history-completion-REPORT.md`
+      and the branch's own predecessor journal.
+- [x] Fetched `origin`; `origin/master` is `96a5855`, thirteen commits
+      behind the approved head and an ancestor of it.
+- [x] Created the sibling worktree from `origin/master` and
+      fast-forwarded it to `2b3c426`. All originals preserved.
+- [x] Verified both pinned core exports file-by-file. Nothing installed.
 
 ## Next
 
-Root reviews the code independently before any integration.
+- [ ] Compile a tiny invented two-EXPAND graph on both cores before
+      writing anything else, to find unsupported compiler or owner
+      semantics early.
+- [ ] Sibling module with the second application, second EXPAND, second
+      age claim and second earnings node.
+- [ ] Focused tests; 123 existing checks on both cores.
+- [ ] Cold/warm witness, module closure, key comparison, report.
