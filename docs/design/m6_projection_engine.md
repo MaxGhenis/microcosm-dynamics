@@ -4259,3 +4259,68 @@ lock ceremony.
   "process_addendum_bindings": {"pass_run_verification": "#42 comment 4948637741", "ladder_search_disclosure": "#42 comment 4948637741 + finding 1 spec-selection"}
 }
 ```
+
+---
+
+**2.8.10.6 Amendment 3j — the mortality-exposure adapter shape is eight
+columns, `person_id` leading (documents this branch's F1/F2, review
+fable51-capture R2).** §2.8.10.3 (line 3115) pins `mortality_exposure` at
+seven columns — `{event_year, required_interview_year, age_band, sex,
+start_weight, exposure, death}`. That line, and every other line above this
+amendment, is left byte-identical: this amendment is appended, not spliced
+in, so every existing citation into this document (including the six spans
+`registered_m6_inputs.py` 48-51/125-137/173/184-235/238 anchors) keeps
+reading what it read.
+
+What is implemented at this branch's HEAD is a strictly **wider** shape.
+`scripts/registered_m6_inputs.py`'s `MORTALITY_EXPOSURE_COLUMNS` is now
+`(person_id, event_year, required_interview_year, age_band, sex,
+start_weight, exposure, death)` — the same seven fields, in the same order,
+with `person_id` prepended. The adapter's own `frame.merge(start_age,
+on=["person_id", "start_wave"], …)` already requires `build_exposure_slices`'
+output to carry `person_id`; nothing new is sourced, only a column already
+present is no longer dropped before the final column selection.
+
+**Verified inert on the fit and on the harness read (source read this
+session, not assumed):**
+
+* `fit_mortality_model` (`engine/refit.py:1069-1075`) names five exposure
+  columns — `age_band, sex, start_weight, exposure, death` — and
+  `_require_columns` (`engine/refit.py:252-257`) is a subset-presence check:
+  an extra column raises nothing and is never read.
+* `harness/m6_inputs.py:435,450-452` reads only `len(raw.mortality_exposure)`
+  and `_max_year(raw.mortality_exposure, "event_year")` off the exposure
+  frame for provenance counts — no per-column read beyond `event_year`.
+
+So `person_id`'s presence changes no fitted probability and no harness
+provenance count; §5 of the identity-lineage lane's evidence report
+(`architecture-reviews/microcosm-20260904/dynamics-mortality-identity-REPORT.md`)
+measures the sixteen fitted cells byte-identical with and without it.
+
+**The seven-column shape is not retired.** `MORTALITY_EXPOSURE_COLUMNS` is
+only reached by a caller that already supplies `person_id` on its exposure
+frame; the pad step (§2.8.10.5) adds a `person_id` to its two invented
+`(0, 24)` rows only when the incoming frame already carries the column, so a
+seven-column caller sees the identical seven-column pad it saw before this
+amendment. §2.8.10.3's pinned seven-column contract remains the floor every
+caller can rely on; the eighth column is additive.
+
+**Pad identity, stated once more where this amendment is read.** The two
+`(0, 24)` pad rows are invented, not observed: `PAD_PERSON_IDS` reserves
+`-1` (female) and `-2` (male) — negative, and therefore disjoint from the
+PSID key domain `ER30001 * 1000 + ER30002`, which is a sum of two
+non-negative fixed-width survey fields (`data/panels.py`, `data/deaths.py`).
+`PAD_IDENTITY_DISCLOSURE` (`scripts/registered_m6_inputs.py`) is the
+authoritative text; retaining `person_id` licenses no claim about mortality,
+coverage below age 25, or anything scientific — it is an engineering change
+to the input factory only.
+
+**Scope.** This amendment documents an implementation already on a local,
+unpushed branch (`microcosm-dynamics-mortality-review-fixes-20260906`,
+descended from `microcosm-dynamics-mortality-identity-20260906`). It moves
+no `gates.yaml` cell, no threshold, no committed `runs/` artifact, and
+certifies no fit. The birth-evidence source-identity seal
+(`tests/estimates/test_birth_evidence_artifact.py`) treats
+`scripts/registered_m6_inputs.py` as a reviewed reducer input; whether its
+new blob is added to `POST_REVIEW_SHARED_SOURCE_BLOBS` is a root decision
+made after root reads the corrected source, not asserted by this note.
