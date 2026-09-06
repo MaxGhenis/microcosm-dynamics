@@ -56,11 +56,44 @@ Environment verified, not installed:
       fast-forwarded it to `2b3c426`. All originals preserved.
 - [x] Verified both pinned core exports file-by-file. Nothing installed.
 
+## Probe: the shape compiles on both cores
+
+`R/microcosm-dynamics-two-transition-verify/probe_two_expand.py` builds a
+tiny invented graph that imports no `populace_dynamics` code at all. It
+declares two chained EXPAND versions over an invented `cell` entity, a
+node in the second version rewriting a cell owned in the first version's
+members, a node in the third version rewriting a cell owned in the
+second's, a same-version full-row claim on each expansion, an artifact
+edge from a node in one version to a node in the next, a failing gate in
+the middle version, and a declared mass receipt whose base already holds
+two partitions.
+
+It compiles and runs on both pinned cores. The receipts
+(`probe-two-expand-3ff.json`, `probe-two-expand-b55.json`) are
+byte-identical apart from the label. What that establishes:
+
+- Version ownership across a chained expansion is accepted. `step1`'s
+  `alive`/`p` are owned by the second-version node, `step2`'s `e` by the
+  third-version node, exactly as the plan's second application and second
+  earnings nodes need.
+- There is no cycle. The order is create, mark, step1, claim1, remark,
+  gate, produce, step2, claim2, consume, and `step2` depends on every
+  ordinary member of `step1` including the gate.
+- One registered claim kernel serves both claims by ref. The probe
+  registers `probe.claim@1` once and names it from two nodes, which is
+  the reuse Fable's note 4 requires.
+- A failed gate is a receipt, not a stop. `gate` returns
+  `outcome: fail` and `consume` still runs and still writes its artifact.
+- A declared mass receipt over a base holding two partitions is accepted;
+  the ledger holds two records.
+
+Two probe defects were mine and were fixed in the probe, not in any
+core: the population view exposes no `mass_ledger` attribute (the
+manifest does, keyed by version), and a node receipt holds a
+`mappingproxy` that plain `json.dumps` will not encode.
+
 ## Next
 
-- [ ] Compile a tiny invented two-EXPAND graph on both cores before
-      writing anything else, to find unsupported compiler or owner
-      semantics early.
 - [ ] Sibling module with the second application, second EXPAND, second
       age claim and second earnings node.
 - [ ] Focused tests; 123 existing checks on both cores.
