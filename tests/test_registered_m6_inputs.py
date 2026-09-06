@@ -38,6 +38,10 @@ if str(SCRIPTS) not in sys.path:
 import build_mortality_floors as mf  # noqa: E402
 import registered_m6_inputs as factory  # noqa: E402
 
+# The seven columns the mortality fit consumes. Deliberately *not* extended
+# with ``person_id``: ``_fourteen_cell_exposure`` builds its frame from this
+# list, and the pad's identity behaviour on an id-free seven-column input is
+# itself part of the contract under test.
 _MORTALITY_COLUMNS = [
     "event_year",
     "required_interview_year",
@@ -47,6 +51,9 @@ _MORTALITY_COLUMNS = [
     "exposure",
     "death",
 ]
+
+# What the adapter emits: the seven fit columns behind the person key.
+_ADAPTER_COLUMNS = ["person_id", *_MORTALITY_COLUMNS]
 
 
 # --------------------------------------------------------------------------
@@ -289,10 +296,61 @@ def _synthetic_panels():
     return demo, death_records
 
 
-def test__adapter__emits_exactly_the_seven_pinned_columns():
+def test__adapter__emits_exactly_the_eight_pinned_columns():
     demo, deaths = _synthetic_panels()
     adapted = factory.mortality_exposure_adapter(demo, deaths)
-    assert list(adapted.columns) == _MORTALITY_COLUMNS
+    assert list(adapted.columns) == _ADAPTER_COLUMNS
+    assert list(factory.MORTALITY_EXPOSURE_COLUMNS) == _ADAPTER_COLUMNS
+
+
+def test__adapter__carries_the_slice_person_key_unchanged():
+    # person_id is the key build_exposure_slices already emits and the
+    # adapter already merges on; retaining it must not renumber anything.
+    demo, deaths = _synthetic_panels()
+    adapted = factory.mortality_exposure_adapter(demo, deaths)
+    slices = mf.build_exposure_slices(demo, deaths)
+    emitted = slices[slices["start_wave"] <= 2014]
+    assert set(adapted["person_id"]) == set(emitted["person_id"])
+    assert adapted["person_id"].dtype.kind == "i"
+    # every id belongs to a person in the supplied panel; none is invented.
+    assert set(adapted["person_id"]) <= set(demo["person_id"])
+
+
+def test__adapter__emits_no_repeated_person_year():
+    demo, deaths = _synthetic_panels()
+    adapted = factory.mortality_exposure_adapter(demo, deaths)
+    assert not adapted.duplicated(["person_id", "event_year"]).any()
+
+
+def test__adapter__refuses_a_panel_that_repeats_a_person_year():
+    # A duplicated (person_id, period) panel row would double the exposure
+    # denominator; the adapter fails closed instead of fitting it.
+    demo, deaths = _synthetic_panels()
+    # Person 1's 2011 wave twice: its biennial interval yields two slices,
+    # so four rows carry a repeated (person_id, event_year).
+    doubled = pd.concat([demo, demo.iloc[[0]]], ignore_index=True)
+    with pytest.raises(
+        ValueError,
+        match=r"repeats 4 \(person_id, event_year\) row\(s\); "
+        r"first keys \[\(1, 2011\), \(1, 2012\)\]",
+    ):
+        factory.mortality_exposure_adapter(doubled, deaths)
+
+
+def test__unique_person_years__reports_the_offending_keys():
+    frame = pd.DataFrame(
+        {"person_id": [1001, 1001, 1002], "event_year": [2011, 2011, 2011]}
+    )
+    with pytest.raises(ValueError, match=r"\[\(1001, 2011\)\]"):
+        factory.assert_unique_person_years(frame)
+
+
+def test__unique_person_years__passes_an_id_free_frame_through():
+    # The seven-column shape has no identity to check.
+    frame = _fourteen_cell_exposure()
+    pd.testing.assert_frame_equal(
+        factory.assert_unique_person_years(frame), frame
+    )
 
 
 def test__adapter__dates_every_slice_by_its_interval_closing_wave():
@@ -480,6 +538,127 @@ def test__pad__exposure_rows_dated_at_t_star_survive_the_truncation():
         boundary_year=2014,
     )
     assert (prepared.exposure["age_band"] == "0-24").sum() == 2
+
+
+# --------------------------------------------------------------------------
+# Step 4c -- pad identity (the two invented rows)
+# --------------------------------------------------------------------------
+def _fourteen_cell_exposure_with_ids() -> pd.DataFrame:
+    """The same fourteen invented cells, keyed by invented person ids.
+
+    Ids start at 1001 because the PSID key is ``ER30001 * 1000 + ER30002``;
+    nothing here is an observed person.
+    """
+    frame = _fourteen_cell_exposure().copy()
+    frame.insert(0, "person_id", np.arange(1001, 1001 + len(frame)))
+    return frame[list(factory.MORTALITY_EXPOSURE_COLUMNS)]
+
+
+def test__pad_ids__are_reserved_negative_and_one_per_sex():
+    assert factory.PAD_PERSON_IDS == {"female": -1, "male": -2}
+    assert set(factory.PAD_PERSON_IDS) == set(mf.SEXES)
+    values = list(factory.PAD_PERSON_IDS.values())
+    assert len(set(values)) == len(values)  # distinct
+    assert all(value < 0 for value in values)  # reserved
+
+
+def test__pad__gives_the_two_rows_reserved_ids_when_the_input_has_ids():
+    _, padded = factory._pad_below_25_projection_coverage(
+        factory.nchs_2010_external_rates(),
+        _fourteen_cell_exposure_with_ids(),
+        boundary_year=2014,
+    )
+    assert list(padded.columns) == list(factory.MORTALITY_EXPOSURE_COLUMNS)
+    assert padded["person_id"].dtype.kind == "i"  # no NaN id
+    pad = padded[padded["age_band"] == "0-24"]
+    assert len(pad) == 2
+    assert dict(zip(pad["sex"], pad["person_id"], strict=True)) == {
+        "female": -1,
+        "male": -2,
+    }
+    # disjoint from every observed row, and unique as a person-year.
+    observed = padded[padded["age_band"] != "0-24"]["person_id"]
+    assert not set(pad["person_id"]) & set(observed)
+    assert not padded.duplicated(["person_id", "event_year"]).any()
+
+
+def test__pad__adds_no_id_to_a_seven_column_input():
+    # The pre-existing shape is preserved exactly: an input with no identity
+    # gets pad rows with no identity.
+    external = factory.nchs_2010_external_rates()
+    exposure = _fourteen_cell_exposure()
+    _, padded = factory._pad_below_25_projection_coverage(
+        external, exposure, boundary_year=2014
+    )
+    assert list(padded.columns) == _MORTALITY_COLUMNS
+    assert "person_id" not in padded.columns
+
+
+def test__pad__refuses_an_input_whose_ids_are_not_the_documented_domain():
+    # The non-collision argument is checked, not assumed: the PSID key
+    # ER30001 * 1000 + ER30002 is non-negative, so a negative observed id
+    # means the reserved sentinels are no longer disjoint.
+    exposure = _fourteen_cell_exposure_with_ids()
+    exposure.loc[0, "person_id"] = -1
+    with pytest.raises(ValueError, match="negative person_id"):
+        factory._pad_below_25_projection_coverage(
+            factory.nchs_2010_external_rates(), exposure, boundary_year=2014
+        )
+
+
+def test__pad_disclosure__says_the_rows_are_invented_and_admit_nothing():
+    text = factory.PAD_IDENTITY_DISCLOSURE
+    assert "INVENTED" in text
+    assert "no observed person identity" in text
+    assert "-1 (female) and -2 (male)" in text
+    assert "admits nothing" in text
+    # and the module points a reader at it from the pad itself.
+    source = (SCRIPTS / "registered_m6_inputs.py").read_text()
+    assert source.count("PAD_IDENTITY_DISCLOSURE") >= 3
+
+
+def test__identity__does_not_move_a_single_fitted_probability():
+    # The load-bearing invariance: the fit reads five named columns, so the
+    # retained key and the two reserved ids are inert. Same fourteen invented
+    # cells, with and without identity, must fit byte-equal probabilities.
+    external = factory.nchs_2010_external_rates()
+    without = _fit(
+        *factory._pad_below_25_projection_coverage(
+            external, _fourteen_cell_exposure(), boundary_year=2014
+        )
+    )
+    with_ids = _fit(
+        *factory._pad_below_25_projection_coverage(
+            external, _fourteen_cell_exposure_with_ids(), boundary_year=2014
+        )
+    )
+    assert with_ids.bands == without.bands
+    assert with_ids.probability == without.probability
+
+
+def test__identity__does_not_move_the_prepared_row_count():
+    external = factory.nchs_2010_external_rates()
+    counts = []
+    for exposure in (
+        _fourteen_cell_exposure(),
+        _fourteen_cell_exposure_with_ids(),
+    ):
+        padded_external, padded_exposure = (
+            factory._pad_below_25_projection_coverage(
+                external, exposure, boundary_year=2014
+            )
+        )
+        counts.append(
+            len(
+                prepare_mortality_refit_inputs(
+                    padded_exposure,
+                    padded_external,
+                    external_vintage_year=2010,
+                    boundary_year=2014,
+                ).exposure
+            )
+        )
+    assert counts[0] == counts[1] == 16
 
 
 def test__bridge__padded_factory_rates_fit_an_eight_band_0_120_model():

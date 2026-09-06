@@ -38,7 +38,10 @@ is no argument and no environment-derived vintage selection beyond
    collapse) and ``mortality_exposure`` from the ``<= T*`` PSID person-interval
    slices via the §2.8.10.3 adapter, then the inert ``(0, 24)``
    projection-coverage pad appended to **both** (§2.8.10.5 F1) so the fitted
-   model spans 0->120 with a ``<25`` hazard of exactly ``0``.
+   model spans 0->120 with a ``<25`` hazard of exactly ``0``. The exposure
+   slices carry ``person_id``; the two pad rows are invented and carry the
+   reserved negative ids in ``PAD_PERSON_IDS`` -- read
+   ``PAD_IDENTITY_DISCLOSURE`` before quoting anything derived from them.
 5. ``return load_m6_inputs(ssa_params=params, ssa_params_vintage=2014,
    claiming_reference=…, mortality_exposure=…, mortality_external_rates=…,
    mortality_external_vintage=2010)`` (boundary_year=2014, earnings_seed=5200).
@@ -315,6 +318,49 @@ def nchs_2010_external_rates(
 # --------------------------------------------------------------------------
 # Step 4b -- the <= T* PSID mortality-exposure adapter (§2.8.10.3)
 # --------------------------------------------------------------------------
+#: The columns the adapter emits, in order. ``person_id`` leads: it is the
+#: key ``build_exposure_slices`` already carries and the adapter already
+#: merges on, and it is what lets a slice be attributed to a person.
+MORTALITY_EXPOSURE_COLUMNS: tuple[str, ...] = (
+    "person_id",
+    "event_year",
+    "required_interview_year",
+    "age_band",
+    "sex",
+    "start_weight",
+    "exposure",
+    "death",
+)
+
+
+def assert_unique_person_years(exposure: pd.DataFrame) -> pd.DataFrame:
+    """Fail closed on a repeated ``(person_id, event_year)`` slice.
+
+    A repeated person-year is double exposure (and possibly a double death)
+    in the occurrence/exposure denominator, so it is refused here rather
+    than fitted. The message reports the count and up to five offending
+    keys; it never prints a weight, an age or any other person attribute.
+
+    A frame without ``person_id`` is returned untouched -- the seven-column
+    shape has no identity to check.
+    """
+    if "person_id" not in exposure.columns:
+        return exposure
+    repeated = exposure.duplicated(["person_id", "event_year"], keep=False)
+    if repeated.any():
+        keys = (
+            exposure.loc[repeated, ["person_id", "event_year"]]
+            .drop_duplicates()
+            .itertuples(index=False, name=None)
+        )
+        sample = [(int(pid), int(year)) for pid, year in keys][:5]
+        raise ValueError(
+            f"mortality exposure repeats {int(repeated.sum())} "
+            f"(person_id, event_year) row(s); first keys {sample}"
+        )
+    return exposure
+
+
 def mortality_exposure_adapter(
     demographic_panel: pd.DataFrame,
     death_records: pd.DataFrame,
@@ -328,16 +374,28 @@ def mortality_exposure_adapter(
     ``exposure = 0.5`` in the death-year slice else ``1.0``, ``death = 1.0``
     there else ``0.0``, ``start_weight`` the F6 realized start-wave anchor
     weight, ``sex`` and ``age_band`` from the slice. This adapter attaches the
-    two dating fields the harness needs and emits the seven pinned columns
-    ``{event_year, required_interview_year, age_band, sex, start_weight,
-    exposure, death}``:
+    two dating fields the harness needs and emits the eight pinned columns
+    ``{person_id, event_year, required_interview_year, age_band, sex,
+    start_weight, exposure, death}``:
 
+    * ``person_id`` -- the slice's own person key, carried straight through
+      from ``build_exposure_slices``. The adapter already merges on it; it is
+      retained rather than dropped so a caller can key a slice back to the
+      person it came from. **The fit never reads it**: ``fit_mortality_model``
+      names five exposure columns (``age_band``, ``sex``, ``start_weight``,
+      ``exposure``, ``death``) and ``load_m6_inputs`` checks columns by
+      subset, so every fitted number is unchanged by its presence.
     * ``event_year`` -- the slice's own calendar year (``start_wave`` for the
       slice at the interval start, ``start_wave + 1`` for the second slice of a
       biennial interval; the death year for the death slice).
     * ``required_interview_year`` -- the interval's **closing wave**
       (``next_wave`` from the demographic panel's wave grid) on **every** slice,
       death and survivor alike -- the symmetric conservative dating rule.
+
+    ``(person_id, event_year)`` is asserted unique before the frame is
+    returned: a repeated person-year would be double-counted in the
+    occurrence/exposure denominator, and the graph's own training kernel
+    rejects it downstream anyway.
 
     Only intervals anchored at a wave ``<= boundary_year`` are emitted, so the
     boundary-straddling 2013->2015 interval (start wave 2013, closing wave
@@ -386,21 +444,11 @@ def mortality_exposure_adapter(
         frame["start_wave"] + (frame["age"] - frame["start_wave_age"])
     ).astype("int64")
 
-    return frame.rename(
+    adapted = frame.rename(
         columns={"band": "age_band", "weight": "start_weight"}
-    )[
-        [
-            "event_year",
-            "required_interview_year",
-            "age_band",
-            "sex",
-            "start_weight",
-            "exposure",
-            "death",
-        ]
-    ].reset_index(
-        drop=True
-    )
+    )[list(MORTALITY_EXPOSURE_COLUMNS)].reset_index(drop=True)
+    assert_unique_person_years(adapted)
+    return adapted
 
 
 # --------------------------------------------------------------------------
@@ -410,6 +458,25 @@ def mortality_exposure_adapter(
 #: and contiguous through 120, while every estimation, truth, and scored
 #: mortality surface is 25+ only.
 PAD_BAND = (0, 24)
+
+#: Reserved ``person_id`` values for the two invented ``(0, 24)`` pad rows,
+#: one per sex. Assigned by name, not by iteration order, so the mapping is
+#: stable regardless of how ``build_mortality_floors.SEXES`` is ordered.
+PAD_PERSON_IDS: dict[str, int] = {"female": -1, "male": -2}
+
+#: Read this before quoting any number computed from a padded frame.
+PAD_IDENTITY_DISCLOSURE = (
+    "The two (0, 24) rows carrying person_id -1 (female) and -2 (male) are "
+    "INVENTED age-coverage pads. They correspond to no PSID person, no "
+    "interview, and no observed person identity; their event_year, weight, "
+    "exposure and zero death are fixed constants chosen so the projection "
+    "model spans ages 0-120 with a <25 hazard of exactly 0. They exist "
+    "because AgeSexMortalityModel refuses a band set that does not start at "
+    "age 0 and fit_mortality_model raises on an empty band x sex cell. "
+    "Retaining person_id is an engineering change only: it admits nothing "
+    "scientific about mortality, adds no observation, and licenses no claim "
+    "about coverage below age 25."
+)
 
 
 def _pad_below_25_projection_coverage(
@@ -441,8 +508,45 @@ def _pad_below_25_projection_coverage(
     invariant to the pad value and weight; the ``0-24`` band feeds only
     ``apply_mortality`` (a zero hazard for materialized births and any
     ``<25`` members) and appears in no scored or disclosed mortality cell.
+
+    **Pad identity.** When -- and only when -- ``exposure`` carries a
+    ``person_id`` column, the two pad rows take the reserved ids in
+    ``PAD_PERSON_IDS``: ``-1`` female, ``-2`` male. Read
+    ``PAD_IDENTITY_DISCLOSURE`` before quoting anything derived from the
+    padded frame: those two rows are invented, they name no PSID person,
+    and nothing scientific follows from them.
+
+    Two reasons the ids are conditional and negative:
+
+    * **Conditional.** A seven-column input has no identity to extend. Pad
+      rows without ``person_id`` would concatenate to a NaN id (and the
+      graph's ``_integer_column`` rejects a non-``int``), while adding one
+      unconditionally would change the shape every existing seven-column
+      caller sees. Emitting the id only alongside an id column keeps both
+      shapes exact.
+    * **Negative.** The PSID person key is ``ER30001 * 1000 + ER30002``
+      (``data/panels.py``, ``data/deaths.py``), a sum of two non-negative
+      fixed-width survey fields, so the observed key domain is
+      ``>= 0`` and disjoint from any negative sentinel. That domain claim is
+      not taken on trust: the observed ids are checked here, and a negative
+      observed id raises rather than silently colliding.
     """
     import build_mortality_floors as mf
+
+    if "person_id" in exposure.columns:
+        observed = pd.to_numeric(exposure["person_id"], errors="coerce")
+        if observed.isna().any():
+            raise ValueError(
+                "mortality exposure person_id must be numeric before the "
+                "(0, 24) pad reserves negative ids"
+            )
+        if (observed < 0).any():
+            raise ValueError(
+                "mortality exposure carries a negative person_id; the "
+                f"(0, 24) pad reserves {sorted(PAD_PERSON_IDS.values())} on "
+                "the documented ER30001 * 1000 + ER30002 key domain, which "
+                "is non-negative"
+            )
 
     lo, hi = PAD_BAND
     label = mf.band_label(lo, hi)
@@ -462,23 +566,28 @@ def _pad_below_25_projection_coverage(
                 "central_rate": deaths_band / person_years,
             }
         )
-        exposure_pad.append(
-            {
-                "event_year": int(boundary_year),
-                "required_interview_year": int(boundary_year),
-                "age_band": label,
-                "sex": sex,
-                "start_weight": 1.0,
-                "exposure": 1.0,
-                "death": 0.0,
-            }
-        )
+        pad_row = {
+            "event_year": int(boundary_year),
+            "required_interview_year": int(boundary_year),
+            "age_band": label,
+            "sex": sex,
+            "start_weight": 1.0,
+            "exposure": 1.0,
+            "death": 0.0,
+        }
+        if "person_id" in exposure.columns:
+            # An invented id for an invented row -- see
+            # PAD_IDENTITY_DISCLOSURE. Reserved negative, so it cannot be
+            # confused with, or collide with, an observed PSID person.
+            pad_row = {"person_id": PAD_PERSON_IDS[sex], **pad_row}
+        exposure_pad.append(pad_row)
     padded_external = pd.concat(
         [external_rates, pd.DataFrame(external_pad)], ignore_index=True
     )
     padded_exposure = pd.concat(
         [exposure, pd.DataFrame(exposure_pad)], ignore_index=True
     )
+    assert_unique_person_years(padded_exposure)
     return padded_external, padded_exposure
 
 
