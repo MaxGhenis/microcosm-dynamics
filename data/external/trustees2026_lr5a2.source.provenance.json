@@ -1,0 +1,16 @@
+{
+  "schema_version": "external_source_provenance.v1",
+  "committed_source_file": "data/external/snapshots/trustees_va2_vintage1/trustees2026_lr5a2.html",
+  "capture_manifest": "data/external/snapshots/trustees_va2_vintage1/capture_manifest.txt",
+  "source_url": "https://www.ssa.gov/oact/TR/2026/lr5a2.html",
+  "document": "The 2026 Annual Report of the Board of Trustees of the Federal Old-Age and Survivors Insurance and Federal Disability Insurance Trust Funds",
+  "table_of_record": "V.A2 - Immigration Assumptions, Calendar Years 1940-2100 [in thousands]",
+  "retrieval_date": "2026-09-06T14:55:07Z",
+  "fetch_method": "Browser network-response capture after browser-header curl returned HTTP 403. A throwaway headless Google Chrome profile fetched the authoritative SSA URL; the Fetch API arrayBuffer() exposed the content-decoded HTTP 200 response body, which was committed directly and sha256-pinned without a transcription step. This reproduces the acquisition route already documented in scripts/extract_ssa_tr_ultimate_assumptions_2014.py:1-11 for the same 403 class. Akamai adds request-specific delivery markup, so the hash identifies this one reviewed acquisition.",
+  "source_sha256": "5dfd05e5c5d4bbe413dd97f2256db24d5595e561623455edca3761bbfece89da",
+  "source_length_bytes": 326209,
+  "http_status": 200,
+  "acquired_by": "Claude Opus 5, cap-entrant-schedule lane (ceremony-29c03102)",
+  "consumed_by": "src/populace_dynamics/data/trustees_immigration.py",
+  "note": "Table V.A2 separates the LPR and temporary-or-unlawfully-present stocks, each with inflow, outflow, adjustment of status and net change, plus a total net change column. The reader consumes the four scenario sections (historical, intermediate, low-cost, high-cost) by their in-table anchor rows (alt_h, alt_2, alt_1, alt_3). The page's data rows carry UNCLOSED <td> tags around the calendar-year cell, so the repo's existing _AllTablesParser in scripts/build_ssa_level_anchors.py (which raises on a nested cell) cannot read this page; the reader implements implicit cell close instead."
+}

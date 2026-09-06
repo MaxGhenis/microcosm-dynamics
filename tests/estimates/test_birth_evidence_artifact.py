@@ -88,6 +88,10 @@ def test_post_review_sources_are_outside_historical_reducer_identity():
         Path("src/populace_dynamics/estimates/anchor_context_registry.py"),
         Path("src/populace_dynamics/estimates/anchor_context_rehearsal.py"),
         Path("src/populace_dynamics/estimates/anchor_context_report.py"),
+        Path("src/populace_dynamics/data/nativity_frame.py"),
+        Path("src/populace_dynamics/data/trustees_immigration.py"),
+        Path("src/populace_dynamics/engine/entrant_domains.py"),
+        Path("src/populace_dynamics/engine/entrant_schedule.py"),
     )
     assert reducer.POST_REVIEW_SHARED_SOURCE_BLOBS == {
         Path(

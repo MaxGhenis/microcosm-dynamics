@@ -1,0 +1,1666 @@
+{
+  "artifact_role": "report_only_capability_evidence",
+  "build": {
+    "certified_frame_sha256": "c2065b642ab00da74746afdfd9f06890e5f32f9b10bd6610ff236452d40f39c5",
+    "certified_pin": {
+      "artifact_sha256": "c2065b642ab00da74746afdfd9f06890e5f32f9b10bd6610ff236452d40f39c5",
+      "bundle_id": "us-4.18.8",
+      "country_id": "us",
+      "data_package": "populace-data",
+      "data_version": "0.1.0",
+      "dataset": "populace_us_2024",
+      "hf_filename": "populace_us_2024.h5",
+      "hf_repo_id": "policyengine/populace-us",
+      "hf_repo_type": "dataset",
+      "model_package": "policyengine-us",
+      "model_version": "1.752.2",
+      "policyengine_version": "4.18.8",
+      "reference_period": "2024",
+      "revision": "populace-us-2024-sparse-l0-refit-57k-71a0887-national-only-20260701"
+    },
+    "network_access": "none at build time; the Trustees control reads a committed hash-verified snapshot and the donor reads the pinned certified frame resolved from the local Hugging Face cache",
+    "next_synthetic_id": 90011550,
+    "populated_column_fractions": {
+      "PEINUSYR": 0.15614965544611611,
+      "PENATVTY": 1.0,
+      "PRCITSHP": 1.0
+    },
+    "synthetic_id_start": 90000000
+  },
+  "candidate_id": null,
+  "control": {
+    "gross_positive_inflow_thousands": {
+      "2026": 1340.0,
+      "2027": 1350.0,
+      "2028": 1390.0,
+      "2029": 1460.0,
+      "2030": 1570.0,
+      "2031": 1670.0,
+      "2032": 1740.0,
+      "2033": 1780.0,
+      "2034": 1790.0,
+      "2035": 1800.0
+    },
+    "provenance": {
+      "capture_manifest_sha256": "d6e445ed8dd9deedae9ee9b221d841003230ea9b0e4bad03ded3716cec08176f",
+      "net_alignment_status": "unachievable by construction: the engine has no emigration law, so an entry-only schedule is aligned to gross inflow and its distance from the published net path is reported as entry_only_minus_net_gap",
+      "network_access": "none; reads only the committed, hash-verified snapshot",
+      "publication": "2026 OASDI Trustees Report",
+      "retrieval_timestamp": "2026-09-06T14:55:07Z",
+      "scenario": "intermediate",
+      "snapshot_sha256": "5dfd05e5c5d4bbe413dd97f2256db24d5595e561623455edca3761bbfece89da",
+      "source_document_id": "ssa_trustees_2026_lr5a2",
+      "source_url": "https://www.ssa.gov/oact/TR/2026/lr5a2.html",
+      "table_id": "V.A2",
+      "units": "thousands_of_persons",
+      "universe": "social_security_area",
+      "universe_bridge_status": "unbridged: V.A2 counts the Social Security area, the certified frame counts the Census resident population; any schedule aligned to this control is an ssa_area_proxy"
+    },
+    "rows": {
+      "2026": {
+        "entry_only_minus_net_gap": 1210.0,
+        "lpr_adjustment_of_status": 450.0,
+        "lpr_inflow": 600.0,
+        "lpr_net_change": 788.0,
+        "lpr_outflow": 263.0,
+        "other_adjustment_of_status": 450.0,
+        "other_inflow": 740.0,
+        "other_net_change": -657.0,
+        "other_outflow": 947.0,
+        "positive_inflow": 1340.0,
+        "scenario": "intermediate",
+        "total_net_change": 130.0,
+        "year": 2026
+      },
+      "2027": {
+        "entry_only_minus_net_gap": 1022.0,
+        "lpr_adjustment_of_status": 450.0,
+        "lpr_inflow": 600.0,
+        "lpr_net_change": 788.0,
+        "lpr_outflow": 263.0,
+        "other_adjustment_of_status": 450.0,
+        "other_inflow": 750.0,
+        "other_net_change": -459.0,
+        "other_outflow": 759.0,
+        "positive_inflow": 1350.0,
+        "scenario": "intermediate",
+        "total_net_change": 328.0,
+        "year": 2027
+      },
+      "2028": {
+        "entry_only_minus_net_gap": 846.0,
+        "lpr_adjustment_of_status": 450.0,
+        "lpr_inflow": 600.0,
+        "lpr_net_change": 788.0,
+        "lpr_outflow": 263.0,
+        "other_adjustment_of_status": 450.0,
+        "other_inflow": 790.0,
+        "other_net_change": -244.0,
+        "other_outflow": 584.0,
+        "positive_inflow": 1390.0,
+        "scenario": "intermediate",
+        "total_net_change": 544.0,
+        "year": 2028
+      },
+      "2029": {
+        "entry_only_minus_net_gap": 700.0,
+        "lpr_adjustment_of_status": 450.0,
+        "lpr_inflow": 600.0,
+        "lpr_net_change": 788.0,
+        "lpr_outflow": 263.0,
+        "other_adjustment_of_status": 450.0,
+        "other_inflow": 860.0,
+        "other_net_change": -27.0,
+        "other_outflow": 437.0,
+        "positive_inflow": 1460.0,
+        "scenario": "intermediate",
+        "total_net_change": 760.0,
+        "year": 2029
+      },
+      "2030": {
+        "entry_only_minus_net_gap": 592.0,
+        "lpr_adjustment_of_status": 450.0,
+        "lpr_inflow": 600.0,
+        "lpr_net_change": 788.0,
+        "lpr_outflow": 263.0,
+        "other_adjustment_of_status": 450.0,
+        "other_inflow": 970.0,
+        "other_net_change": 191.0,
+        "other_outflow": 329.0,
+        "positive_inflow": 1570.0,
+        "scenario": "intermediate",
+        "total_net_change": 978.0,
+        "year": 2030
+      },
+      "2031": {
+        "entry_only_minus_net_gap": 510.0,
+        "lpr_adjustment_of_status": 450.0,
+        "lpr_inflow": 600.0,
+        "lpr_net_change": 788.0,
+        "lpr_outflow": 263.0,
+        "other_adjustment_of_status": 450.0,
+        "other_inflow": 1070.0,
+        "other_net_change": 372.0,
+        "other_outflow": 248.0,
+        "positive_inflow": 1670.0,
+        "scenario": "intermediate",
+        "total_net_change": 1160.0,
+        "year": 2031
+      },
+      "2032": {
+        "entry_only_minus_net_gap": 518.0,
+        "lpr_adjustment_of_status": 450.0,
+        "lpr_inflow": 600.0,
+        "lpr_net_change": 788.0,
+        "lpr_outflow": 263.0,
+        "other_adjustment_of_status": 450.0,
+        "other_inflow": 1140.0,
+        "other_net_change": 434.0,
+        "other_outflow": 256.0,
+        "positive_inflow": 1740.0,
+        "scenario": "intermediate",
+        "total_net_change": 1222.0,
+        "year": 2032
+      },
+      "2033": {
+        "entry_only_minus_net_gap": 528.0,
+        "lpr_adjustment_of_status": 450.0,
+        "lpr_inflow": 600.0,
+        "lpr_net_change": 788.0,
+        "lpr_outflow": 263.0,
+        "other_adjustment_of_status": 450.0,
+        "other_inflow": 1180.0,
+        "other_net_change": 465.0,
+        "other_outflow": 265.0,
+        "positive_inflow": 1780.0,
+        "scenario": "intermediate",
+        "total_net_change": 1252.0,
+        "year": 2033
+      },
+      "2034": {
+        "entry_only_minus_net_gap": 538.0,
+        "lpr_adjustment_of_status": 450.0,
+        "lpr_inflow": 600.0,
+        "lpr_net_change": 788.0,
+        "lpr_outflow": 263.0,
+        "other_adjustment_of_status": 450.0,
+        "other_inflow": 1190.0,
+        "other_net_change": 465.0,
+        "other_outflow": 275.0,
+        "positive_inflow": 1790.0,
+        "scenario": "intermediate",
+        "total_net_change": 1252.0,
+        "year": 2034
+      },
+      "2035": {
+        "entry_only_minus_net_gap": 546.0,
+        "lpr_adjustment_of_status": 450.0,
+        "lpr_inflow": 600.0,
+        "lpr_net_change": 788.0,
+        "lpr_outflow": 263.0,
+        "other_adjustment_of_status": 450.0,
+        "other_inflow": 1200.0,
+        "other_net_change": 466.0,
+        "other_outflow": 284.0,
+        "positive_inflow": 1800.0,
+        "scenario": "intermediate",
+        "total_net_change": 1254.0,
+        "year": 2035
+      }
+    }
+  },
+  "disclosures": {
+    "donor_basis_status": "stock_proxy_not_arrival_observation",
+    "entry_only_minus_net_gap_thousands": {
+      "2026": 1210.0,
+      "2027": 1022.0,
+      "2028": 846.0,
+      "2029": 700.0,
+      "2030": 592.0,
+      "2031": 510.0,
+      "2032": 518.0,
+      "2033": 528.0,
+      "2034": 538.0,
+      "2035": 546.0
+    },
+    "gates_yaml_untouched": true,
+    "net_alignment_status": "entry_only_no_emigration_law",
+    "not_supported_by_this_artifact": [
+      "entrant benefit levels (AIME, PIA, claiming) - suppressed",
+      "insured status and prior US covered earnings - censored, not zero",
+      "legal status and undocumented share",
+      "population stocks, dependency ratios and net migration - an entry-only schedule cannot close a net path",
+      "any post-entry transition of an entrant",
+      "annual arrival resolution - the donor band is 2022-2024"
+    ],
+    "universe_bridge_status": "ssa_area_proxy_unbridged"
+  },
+  "donor": {
+    "composition_by_age_band_sex": {
+      "0-17|female": {
+        "age_band": "0-17",
+        "n_rows": 128,
+        "sex": "female",
+        "share": 0.08345887729287316,
+        "weighted": 195741.8159673976
+      },
+      "0-17|male": {
+        "age_band": "0-17",
+        "n_rows": 138,
+        "sex": "male",
+        "share": 0.07411168015470612,
+        "weighted": 173819.1948948719
+      },
+      "18-24|female": {
+        "age_band": "18-24",
+        "n_rows": 60,
+        "sex": "female",
+        "share": 0.07638358654243634,
+        "weighted": 179147.65241152025
+      },
+      "18-24|male": {
+        "age_band": "18-24",
+        "n_rows": 89,
+        "sex": "male",
+        "share": 0.06532441405290418,
+        "weighted": 153209.8183977554
+      },
+      "25-34|female": {
+        "age_band": "25-34",
+        "n_rows": 187,
+        "sex": "female",
+        "share": 0.15148107726922122,
+        "weighted": 355278.9362996506
+      },
+      "25-34|male": {
+        "age_band": "25-34",
+        "n_rows": 158,
+        "sex": "male",
+        "share": 0.17836009930900074,
+        "weighted": 418320.1460086078
+      },
+      "35-44|female": {
+        "age_band": "35-44",
+        "n_rows": 92,
+        "sex": "female",
+        "share": 0.07098538582485961,
+        "weighted": 166486.88287220596
+      },
+      "35-44|male": {
+        "age_band": "35-44",
+        "n_rows": 111,
+        "sex": "male",
+        "share": 0.08219242782949492,
+        "weighted": 192771.5253783848
+      },
+      "45-54|female": {
+        "age_band": "45-54",
+        "n_rows": 51,
+        "sex": "female",
+        "share": 0.0646394329999538,
+        "weighted": 151603.28546133384
+      },
+      "45-54|male": {
+        "age_band": "45-54",
+        "n_rows": 53,
+        "sex": "male",
+        "share": 0.08105686014233487,
+        "weighted": 190108.20077531607
+      },
+      "55-64|female": {
+        "age_band": "55-64",
+        "n_rows": 25,
+        "sex": "female",
+        "share": 0.011367726838262576,
+        "weighted": 26661.50764207383
+      },
+      "55-64|male": {
+        "age_band": "55-64",
+        "n_rows": 26,
+        "sex": "male",
+        "share": 0.040268195026314076,
+        "weighted": 94443.75332919954
+      },
+      "65+|female": {
+        "age_band": "65+",
+        "n_rows": 25,
+        "sex": "female",
+        "share": 0.008762108713385005,
+        "weighted": 20550.37315255375
+      },
+      "65+|male": {
+        "age_band": "65+",
+        "n_rows": 12,
+        "sex": "male",
+        "share": 0.01160812800425354,
+        "weighted": 27225.33694721318
+      }
+    },
+    "frame_diagnostics": {
+      "calibration_status": "UNCALIBRATED: no nativity column appears in deployment_frame.REQUIRED_SOURCE_COLUMNS and the certified file pins no nativity margin, so this composition is a free consequence of the reweighting, not a target it hit",
+      "entry_year_universe_identity": {
+        "holds": true,
+        "n_peinusyr_zero": 140334,
+        "n_prcitshp_native_born_us": 140334,
+        "statement": "PEINUSYR == 0 holds exactly on PRCITSHP == 1"
+      },
+      "foreign_born": {
+        "codes": [
+          4,
+          5
+        ],
+        "n_rows": 23732,
+        "share": 0.17962656936617746,
+        "weighted": 61074625.73652643
+      },
+      "foreign_born_share_by_age_band": {
+        "0-17": {
+          "foreign_born_share": 0.0468530416109277,
+          "n_foreign_born": 1882,
+          "n_rows": 45898
+        },
+        "18-24": {
+          "foreign_born_share": 0.12133387769940189,
+          "n_foreign_born": 1449,
+          "n_rows": 13257
+        },
+        "25-34": {
+          "foreign_born_share": 0.20519886627929654,
+          "n_foreign_born": 3902,
+          "n_rows": 21315
+        },
+        "35-44": {
+          "foreign_born_share": 0.28970330112135534,
+          "n_foreign_born": 5280,
+          "n_rows": 22919
+        },
+        "45-54": {
+          "foreign_born_share": 0.292082554733615,
+          "n_foreign_born": 4676,
+          "n_rows": 19457
+        },
+        "55-64": {
+          "foreign_born_share": 0.254031422203878,
+          "n_foreign_born": 3418,
+          "n_rows": 17977
+        },
+        "65+": {
+          "foreign_born_share": 0.143447959492468,
+          "n_foreign_born": 3125,
+          "n_rows": 25479
+        }
+      },
+      "n_rows": 166302,
+      "penatvty": {
+        "n_distinct_codes": 161,
+        "n_outlying_areas": 823,
+        "n_united_states": 140320
+      },
+      "prcitshp_counts": {
+        "1": {
+          "label": "Native, born in US",
+          "n_rows": 140334,
+          "weighted": 273893785.1885044
+        },
+        "2": {
+          "label": "Native, born in PR or US outlying area",
+          "n_rows": 836,
+          "weighted": 2181189.2752882545
+        },
+        "3": {
+          "label": "Native, born abroad of US parent(s)",
+          "n_rows": 1400,
+          "weighted": 2859263.477430339
+        },
+        "4": {
+          "label": "Foreign born, US cit by naturalization",
+          "n_rows": 10893,
+          "weighted": 28964268.067626715
+        },
+        "5": {
+          "label": "Foreign born, not a US citizen",
+          "n_rows": 12839,
+          "weighted": 32110357.668899707
+        }
+      },
+      "weighted_persons": 340008863.6777494
+    },
+    "provenance": {
+      "annual_resolution_disclosure": "CPS year-of-entry is binned, so this donor cannot produce an annual arrival cohort directly; band_midpoint_rounded_up is the stated rule applied, and it is not gradeable against CPS itself. ACS PUMS YOEP would buy annual resolution and is the named successor artifact",
+      "arrival_windows": {
+        "28": [
+          2022,
+          2024
+        ]
+      },
+      "asec_vintage": 2024,
+      "band_split_rule": "band_midpoint_rounded_up",
+      "certified_pin": {
+        "artifact_sha256": "c2065b642ab00da74746afdfd9f06890e5f32f9b10bd6610ff236452d40f39c5",
+        "bundle_id": "us-4.18.8",
+        "country_id": "us",
+        "data_package": "populace-data",
+        "data_version": "0.1.0",
+        "dataset": "populace_us_2024",
+        "hf_filename": "populace_us_2024.h5",
+        "hf_repo_id": "policyengine/populace-us",
+        "hf_repo_type": "dataset",
+        "model_package": "policyengine-us",
+        "model_version": "1.752.2",
+        "policyengine_version": "4.18.8",
+        "reference_period": "2024",
+        "revision": "populace-us-2024-sparse-l0-refit-57k-71a0887-national-only-20260701"
+      },
+      "donor_source": "certified populace deployment frame",
+      "n_donor_rows": 1155,
+      "n_foreign_born_rows": 1155,
+      "peinusyr_codes": [
+        28
+      ],
+      "stock_proxy_disclosure": "stock_proxy: the survey observes a resident survivor/stayer at interview, not an arrival. Education, marriage, disability, employment, earnings and residence all change between reported entry and interview; only age and sex are carried, and only because the donor is restricted to the most recent arrival band (lag 0-2 years)",
+      "universe": "foreign_born_prcitshp_4_or_5",
+      "universe_reason": "PEINUSYR's universe is everyone not born in the fifty states, so the recent-arrival band also holds natives born in PR/outlying areas (PRCITSHP 2) and abroad of US parents (PRCITSHP 3). They are US citizens at birth and appear in neither of Table V.A2's stocks -- internal migration, not immigration -- so they are excluded to match the control's universe",
+      "weighted_donor_persons": 2345368.429538084
+    },
+    "vintage_domain_mismatch": {
+      "interpretation": "each listed (source_year, peinusyr) pair carries a code the labelled ASEC vintage's published data dictionary does not define; no arrival year is asserted for those rows",
+      "rows_in_universe": 25968,
+      "rows_with_undefined_band": 795,
+      "undefined_pairs": {
+        "source_year=2023,peinusyr=28": 795
+      }
+    }
+  },
+  "exclusions": {
+    "excluded_domains": {
+      "claiming_eligibility": {
+        "counterfactual": "without this exclusion apply_claiming would draw a claim age for 1350 entrant rows aged 50+, each of whom carries a pinned zero earnings history",
+        "n_excluded": 11550,
+        "n_would_have_drawn_a_claim_age": 1350,
+        "reason": "steps.py:390-450 draws a claim age for everyone aged 50+ with no insured-status, quarters-of-coverage, AIME or PIA test; reported year of entry does not identify FIRST entry, so prior US covered earnings are unknown/censored rather than zero and insured status cannot be established from either survey"
+      },
+      "disability_panel": {
+        "n_excluded": 11550,
+        "reason": "disability.py:56-60 filters a PSID-built DisabilityPanel to holdout_ids; entrants are not in the panel, and ASEC/CPS disability items are not realized PSID M4 status"
+      },
+      "earnings_domain": {
+        "n_checked_out_of_domain": 11550,
+        "n_excluded": 11550,
+        "reason": "earnings_domain.py:150-208 keys membership on the generator's fitted 2014 state and forward_earnings.py:1421-1436 raises without it; the section 2.8.3a certificate was never fitted on entrants and does not transfer to them"
+      },
+      "fertility_risk": {
+        "n_excluded": 11550,
+        "n_would_have_been_at_risk": 3830,
+        "reason": "steps.py:451-506 materializes births only for on-roster mothers and initializes parity at zero; no entrant parity or birth-history seed exists, so leaving entrants at risk would assert every entrant arrived childless"
+      }
+    },
+    "gated": false,
+    "interpretation": "an excluded entrant is OUTSIDE the estimand for that domain, not a person modelled as having no children, no disability and no claim; suppressed counts are reported instead of zeros for exactly that reason",
+    "n_entrants": 11550,
+    "n_rows": 11550,
+    "not_certified": "entrant benefit levels, insured status, prior US covered earnings, legal status, population stocks and every post-entry transition remain out of scope",
+    "residual_domains_entrants_do_enter": [
+      "mortality (age/sex draw at the entry age)",
+      "aging (deterministic advance)"
+    ],
+    "status": "reported"
+  },
+  "gate_id": null,
+  "gated": false,
+  "schedule": {
+    "activation_years": [
+      2026,
+      2027,
+      2028,
+      2029,
+      2030,
+      2031,
+      2032,
+      2033,
+      2034,
+      2035
+    ],
+    "alignment_summary": {
+      "basis": "the donor is reweighted, not resampled, so the residual against the control is floating-point arithmetic and not sampling noise",
+      "max_abs_relative_residual": 2.9659954605588486e-16
+    },
+    "by_activation_year": {
+      "2026": {
+        "alignment": {
+          "control_inflow_thousands": 1340.0,
+          "donor_weight_scale": 0.5713388067835083,
+          "n_rows": 1155,
+          "relative_residual": 0.0,
+          "residual_persons": 0.0,
+          "scheduled_weighted_persons": 1340000.0,
+          "target_weighted_persons": 1340000.0
+        },
+        "cells_by_age_band_sex": {
+          "0-17|female": {
+            "n_foreign_born_rows": 128,
+            "n_rows": 128,
+            "weighted_foreign_born": 111834.89557245001,
+            "weighted_persons": 111834.89557245001
+          },
+          "0-17|male": {
+            "n_foreign_born_rows": 138,
+            "n_rows": 138,
+            "weighted_foreign_born": 99309.65140730621,
+            "weighted_persons": 99309.65140730621
+          },
+          "18-24|female": {
+            "n_foreign_born_rows": 60,
+            "n_rows": 60,
+            "weighted_foreign_born": 102354.00596686466,
+            "weighted_persons": 102354.00596686466
+          },
+          "18-24|male": {
+            "n_foreign_born_rows": 89,
+            "n_rows": 89,
+            "weighted_foreign_born": 87534.71483089161,
+            "weighted_persons": 87534.71483089161
+          },
+          "25-34|female": {
+            "n_foreign_born_rows": 187,
+            "n_rows": 187,
+            "weighted_foreign_born": 202984.64354075643,
+            "weighted_persons": 202984.64354075643
+          },
+          "25-34|male": {
+            "n_foreign_born_rows": 158,
+            "n_rows": 158,
+            "weighted_foreign_born": 239002.53307406095,
+            "weighted_persons": 239002.53307406095
+          },
+          "35-44|female": {
+            "n_foreign_born_rows": 92,
+            "n_rows": 92,
+            "weighted_foreign_born": 95120.41700531184,
+            "weighted_persons": 95120.41700531184
+          },
+          "35-44|male": {
+            "n_foreign_born_rows": 111,
+            "n_rows": 111,
+            "weighted_foreign_born": 110137.85329152316,
+            "weighted_persons": 110137.85329152316
+          },
+          "45-54|female": {
+            "n_foreign_born_rows": 51,
+            "n_rows": 51,
+            "weighted_foreign_born": 86616.84021993805,
+            "weighted_persons": 86616.84021993805
+          },
+          "45-54|male": {
+            "n_foreign_born_rows": 53,
+            "n_rows": 53,
+            "weighted_foreign_born": 108616.19259072872,
+            "weighted_persons": 108616.19259072872
+          },
+          "55-64|female": {
+            "n_foreign_born_rows": 25,
+            "n_rows": 25,
+            "weighted_foreign_born": 15232.753963271849,
+            "weighted_persons": 15232.753963271849
+          },
+          "55-64|male": {
+            "n_foreign_born_rows": 26,
+            "n_rows": 26,
+            "weighted_foreign_born": 53959.38133526086,
+            "weighted_persons": 53959.38133526086
+          },
+          "65+|female": {
+            "n_foreign_born_rows": 25,
+            "n_rows": 25,
+            "weighted_foreign_born": 11741.225675935906,
+            "weighted_persons": 11741.225675935906
+          },
+          "65+|male": {
+            "n_foreign_born_rows": 12,
+            "n_rows": 12,
+            "weighted_foreign_born": 15554.891525699742,
+            "weighted_persons": 15554.891525699742
+          }
+        }
+      },
+      "2027": {
+        "alignment": {
+          "control_inflow_thousands": 1350.0,
+          "donor_weight_scale": 0.5756025292221912,
+          "n_rows": 1155,
+          "relative_residual": 0.0,
+          "residual_persons": 0.0,
+          "scheduled_weighted_persons": 1350000.0,
+          "target_weighted_persons": 1350000.0
+        },
+        "cells_by_age_band_sex": {
+          "0-17|female": {
+            "n_foreign_born_rows": 128,
+            "n_rows": 128,
+            "weighted_foreign_born": 112669.48434537876,
+            "weighted_persons": 112669.48434537876
+          },
+          "0-17|male": {
+            "n_foreign_born_rows": 138,
+            "n_rows": 138,
+            "weighted_foreign_born": 100050.76820885326,
+            "weighted_persons": 100050.76820885326
+          },
+          "18-24|female": {
+            "n_foreign_born_rows": 60,
+            "n_rows": 60,
+            "weighted_foreign_born": 103117.84183228904,
+            "weighted_persons": 103117.84183228904
+          },
+          "18-24|male": {
+            "n_foreign_born_rows": 89,
+            "n_rows": 89,
+            "weighted_foreign_born": 88187.95897142064,
+            "weighted_persons": 88187.95897142064
+          },
+          "25-34|female": {
+            "n_foreign_born_rows": 187,
+            "n_rows": 187,
+            "weighted_foreign_born": 204499.45431344863,
+            "weighted_persons": 204499.45431344863
+          },
+          "25-34|male": {
+            "n_foreign_born_rows": 158,
+            "n_rows": 158,
+            "weighted_foreign_born": 240786.134067151,
+            "weighted_persons": 240786.134067151
+          },
+          "35-44|female": {
+            "n_foreign_born_rows": 92,
+            "n_rows": 92,
+            "weighted_foreign_born": 95830.27086356046,
+            "weighted_persons": 95830.27086356046
+          },
+          "35-44|male": {
+            "n_foreign_born_rows": 111,
+            "n_rows": 111,
+            "weighted_foreign_born": 110959.77756981809,
+            "weighted_persons": 110959.77756981809
+          },
+          "45-54|female": {
+            "n_foreign_born_rows": 51,
+            "n_rows": 51,
+            "weighted_foreign_born": 87263.2345499376,
+            "weighted_persons": 87263.2345499376
+          },
+          "45-54|male": {
+            "n_foreign_born_rows": 53,
+            "n_rows": 53,
+            "weighted_foreign_born": 109426.7611921521,
+            "weighted_persons": 109426.7611921521
+          },
+          "55-64|female": {
+            "n_foreign_born_rows": 25,
+            "n_rows": 25,
+            "weighted_foreign_born": 15346.431231654475,
+            "weighted_persons": 15346.431231654475
+          },
+          "55-64|male": {
+            "n_foreign_born_rows": 26,
+            "n_rows": 26,
+            "weighted_foreign_born": 54362.06328552401,
+            "weighted_persons": 54362.06328552401
+          },
+          "65+|female": {
+            "n_foreign_born_rows": 25,
+            "n_rows": 25,
+            "weighted_foreign_born": 11828.846763069754,
+            "weighted_persons": 11828.846763069754
+          },
+          "65+|male": {
+            "n_foreign_born_rows": 12,
+            "n_rows": 12,
+            "weighted_foreign_born": 15670.97280574228,
+            "weighted_persons": 15670.97280574228
+          }
+        }
+      },
+      "2028": {
+        "alignment": {
+          "control_inflow_thousands": 1390.0,
+          "donor_weight_scale": 0.5926574189769229,
+          "n_rows": 1155,
+          "relative_residual": 1.6750406018264003e-16,
+          "residual_persons": 2.3283064365386963e-10,
+          "scheduled_weighted_persons": 1390000.0000000002,
+          "target_weighted_persons": 1390000.0
+        },
+        "cells_by_age_band_sex": {
+          "0-17|female": {
+            "n_foreign_born_rows": 128,
+            "n_rows": 128,
+            "weighted_foreign_born": 116007.8394370937,
+            "weighted_persons": 116007.8394370937
+          },
+          "0-17|male": {
+            "n_foreign_born_rows": 138,
+            "n_rows": 138,
+            "weighted_foreign_born": 103015.23541504153,
+            "weighted_persons": 103015.23541504153
+          },
+          "18-24|female": {
+            "n_foreign_born_rows": 60,
+            "n_rows": 60,
+            "weighted_foreign_born": 106173.1852939865,
+            "weighted_persons": 106173.1852939865
+          },
+          "18-24|male": {
+            "n_foreign_born_rows": 89,
+            "n_rows": 89,
+            "weighted_foreign_born": 90800.93553353682,
+            "weighted_persons": 90800.93553353682
+          },
+          "25-34|female": {
+            "n_foreign_born_rows": 187,
+            "n_rows": 187,
+            "weighted_foreign_born": 210558.69740421753,
+            "weighted_persons": 210558.69740421753
+          },
+          "25-34|male": {
+            "n_foreign_born_rows": 158,
+            "n_rows": 158,
+            "weighted_foreign_born": 247920.53803951107,
+            "weighted_persons": 247920.53803951107
+          },
+          "35-44|female": {
+            "n_foreign_born_rows": 92,
+            "n_rows": 92,
+            "weighted_foreign_born": 98669.68629655485,
+            "weighted_persons": 98669.68629655485
+          },
+          "35-44|male": {
+            "n_foreign_born_rows": 111,
+            "n_rows": 111,
+            "weighted_foreign_born": 114247.47468299788,
+            "weighted_persons": 114247.47468299788
+          },
+          "45-54|female": {
+            "n_foreign_born_rows": 51,
+            "n_rows": 51,
+            "weighted_foreign_born": 89848.81186993574,
+            "weighted_persons": 89848.81186993574
+          },
+          "45-54|male": {
+            "n_foreign_born_rows": 53,
+            "n_rows": 53,
+            "weighted_foreign_born": 112669.03559784548,
+            "weighted_persons": 112669.03559784548
+          },
+          "55-64|female": {
+            "n_foreign_born_rows": 25,
+            "n_rows": 25,
+            "weighted_foreign_born": 15801.140305184983,
+            "weighted_persons": 15801.140305184983
+          },
+          "55-64|male": {
+            "n_foreign_born_rows": 26,
+            "n_rows": 26,
+            "weighted_foreign_born": 55972.79108657658,
+            "weighted_persons": 55972.79108657658
+          },
+          "65+|female": {
+            "n_foreign_born_rows": 25,
+            "n_rows": 25,
+            "weighted_foreign_born": 12179.33111160516,
+            "weighted_persons": 12179.33111160516
+          },
+          "65+|male": {
+            "n_foreign_born_rows": 12,
+            "n_rows": 12,
+            "weighted_foreign_born": 16135.297925912422,
+            "weighted_persons": 16135.297925912422
+          }
+        }
+      },
+      "2029": {
+        "alignment": {
+          "control_inflow_thousands": 1460.0,
+          "donor_weight_scale": 0.6225034760477032,
+          "n_rows": 1155,
+          "relative_residual": 0.0,
+          "residual_persons": 0.0,
+          "scheduled_weighted_persons": 1460000.0,
+          "target_weighted_persons": 1460000.0
+        },
+        "cells_by_age_band_sex": {
+          "0-17|female": {
+            "n_foreign_born_rows": 128,
+            "n_rows": 128,
+            "weighted_foreign_born": 121849.9608475948,
+            "weighted_persons": 121849.9608475948
+          },
+          "0-17|male": {
+            "n_foreign_born_rows": 138,
+            "n_rows": 138,
+            "weighted_foreign_born": 108203.05302587095,
+            "weighted_persons": 108203.05302587095
+          },
+          "18-24|female": {
+            "n_foreign_born_rows": 60,
+            "n_rows": 60,
+            "weighted_foreign_born": 111520.03635195704,
+            "weighted_persons": 111520.03635195704
+          },
+          "18-24|male": {
+            "n_foreign_born_rows": 89,
+            "n_rows": 89,
+            "weighted_foreign_born": 95373.64451724011,
+            "weighted_persons": 95373.64451724011
+          },
+          "25-34|female": {
+            "n_foreign_born_rows": 187,
+            "n_rows": 187,
+            "weighted_foreign_born": 221162.37281306303,
+            "weighted_persons": 221162.37281306303
+          },
+          "25-34|male": {
+            "n_foreign_born_rows": 158,
+            "n_rows": 158,
+            "weighted_foreign_born": 260405.74499114108,
+            "weighted_persons": 260405.74499114108
+          },
+          "35-44|female": {
+            "n_foreign_born_rows": 92,
+            "n_rows": 92,
+            "weighted_foreign_born": 103638.66330429503,
+            "weighted_persons": 103638.66330429503
+          },
+          "35-44|male": {
+            "n_foreign_born_rows": 111,
+            "n_rows": 111,
+            "weighted_foreign_born": 120000.94463106255,
+            "weighted_persons": 120000.94463106255
+          },
+          "45-54|female": {
+            "n_foreign_born_rows": 51,
+            "n_rows": 51,
+            "weighted_foreign_born": 94373.5721799325,
+            "weighted_persons": 94373.5721799325
+          },
+          "45-54|male": {
+            "n_foreign_born_rows": 53,
+            "n_rows": 53,
+            "weighted_foreign_born": 118343.01580780894,
+            "weighted_persons": 118343.01580780894
+          },
+          "55-64|female": {
+            "n_foreign_born_rows": 25,
+            "n_rows": 25,
+            "weighted_foreign_born": 16596.88118386336,
+            "weighted_persons": 16596.88118386336
+          },
+          "55-64|male": {
+            "n_foreign_born_rows": 26,
+            "n_rows": 26,
+            "weighted_foreign_born": 58791.56473841855,
+            "weighted_persons": 58791.56473841855
+          },
+          "65+|female": {
+            "n_foreign_born_rows": 25,
+            "n_rows": 25,
+            "weighted_foreign_born": 12792.678721542108,
+            "weighted_persons": 12792.678721542108
+          },
+          "65+|male": {
+            "n_foreign_born_rows": 12,
+            "n_rows": 12,
+            "weighted_foreign_born": 16947.86688621017,
+            "weighted_persons": 16947.86688621017
+          }
+        }
+      },
+      "2030": {
+        "alignment": {
+          "control_inflow_thousands": 1570.0,
+          "donor_weight_scale": 0.6694044228732151,
+          "n_rows": 1155,
+          "relative_residual": 2.9659954605588486e-16,
+          "residual_persons": 4.656612873077393e-10,
+          "scheduled_weighted_persons": 1570000.0000000005,
+          "target_weighted_persons": 1570000.0
+        },
+        "cells_by_age_band_sex": {
+          "0-17|female": {
+            "n_foreign_born_rows": 128,
+            "n_rows": 128,
+            "weighted_foreign_born": 131030.43734981086,
+            "weighted_persons": 131030.43734981086
+          },
+          "0-17|male": {
+            "n_foreign_born_rows": 138,
+            "n_rows": 138,
+            "weighted_foreign_born": 116355.33784288865,
+            "weighted_persons": 116355.33784288865
+          },
+          "18-24|female": {
+            "n_foreign_born_rows": 60,
+            "n_rows": 60,
+            "weighted_foreign_born": 119922.23087162506,
+            "weighted_persons": 119922.23087162506
+          },
+          "18-24|male": {
+            "n_foreign_born_rows": 89,
+            "n_rows": 89,
+            "weighted_foreign_born": 102559.33006305955,
+            "weighted_persons": 102559.33006305955
+          },
+          "25-34|female": {
+            "n_foreign_born_rows": 187,
+            "n_rows": 187,
+            "weighted_foreign_born": 237825.29131267732,
+            "weighted_persons": 237825.29131267732
+          },
+          "25-34|male": {
+            "n_foreign_born_rows": 158,
+            "n_rows": 158,
+            "weighted_foreign_born": 280025.35591513116,
+            "weighted_persons": 280025.35591513116
+          },
+          "35-44|female": {
+            "n_foreign_born_rows": 92,
+            "n_rows": 92,
+            "weighted_foreign_born": 111447.05574502957,
+            "weighted_persons": 111447.05574502957
+          },
+          "35-44|male": {
+            "n_foreign_born_rows": 111,
+            "n_rows": 111,
+            "weighted_foreign_born": 129042.11169230698,
+            "weighted_persons": 129042.11169230698
+          },
+          "45-54|female": {
+            "n_foreign_born_rows": 51,
+            "n_rows": 51,
+            "weighted_foreign_born": 101483.90980992743,
+            "weighted_persons": 101483.90980992743
+          },
+          "45-54|male": {
+            "n_foreign_born_rows": 53,
+            "n_rows": 53,
+            "weighted_foreign_born": 127259.27042346576,
+            "weighted_persons": 127259.27042346576
+          },
+          "55-64|female": {
+            "n_foreign_born_rows": 25,
+            "n_rows": 25,
+            "weighted_foreign_born": 17847.331136072244,
+            "weighted_persons": 17847.331136072244
+          },
+          "55-64|male": {
+            "n_foreign_born_rows": 26,
+            "n_rows": 26,
+            "weighted_foreign_born": 63221.06619131312,
+            "weighted_persons": 63221.06619131312
+          },
+          "65+|female": {
+            "n_foreign_born_rows": 25,
+            "n_rows": 25,
+            "weighted_foreign_born": 13756.51068001446,
+            "weighted_persons": 13756.51068001446
+          },
+          "65+|male": {
+            "n_foreign_born_rows": 12,
+            "n_rows": 12,
+            "weighted_foreign_born": 18224.76096667806,
+            "weighted_persons": 18224.76096667806
+          }
+        }
+      },
+      "2031": {
+        "alignment": {
+          "control_inflow_thousands": 1670.0,
+          "donor_weight_scale": 0.712041647260044,
+          "n_rows": 1155,
+          "relative_residual": 1.3941954709812552e-16,
+          "residual_persons": 2.3283064365386963e-10,
+          "scheduled_weighted_persons": 1670000.0000000002,
+          "target_weighted_persons": 1670000.0
+        },
+        "cells_by_age_band_sex": {
+          "0-17|female": {
+            "n_foreign_born_rows": 128,
+            "n_rows": 128,
+            "weighted_foreign_born": 139376.32507909817,
+            "weighted_persons": 139376.32507909817
+          },
+          "0-17|male": {
+            "n_foreign_born_rows": 138,
+            "n_rows": 138,
+            "weighted_foreign_born": 123766.50585835925,
+            "weighted_persons": 123766.50585835925
+          },
+          "18-24|female": {
+            "n_foreign_born_rows": 60,
+            "n_rows": 60,
+            "weighted_foreign_born": 127560.58952586867,
+            "weighted_persons": 127560.58952586867
+          },
+          "18-24|male": {
+            "n_foreign_born_rows": 89,
+            "n_rows": 89,
+            "weighted_foreign_born": 109091.77146834998,
+            "weighted_persons": 109091.77146834998
+          },
+          "25-34|female": {
+            "n_foreign_born_rows": 187,
+            "n_rows": 187,
+            "weighted_foreign_born": 252973.39903959946,
+            "weighted_persons": 252973.39903959946
+          },
+          "25-34|male": {
+            "n_foreign_born_rows": 158,
+            "n_rows": 158,
+            "weighted_foreign_born": 297861.3658460312,
+            "weighted_persons": 297861.3658460312
+          },
+          "35-44|female": {
+            "n_foreign_born_rows": 92,
+            "n_rows": 92,
+            "weighted_foreign_born": 118545.59432751554,
+            "weighted_persons": 118545.59432751554
+          },
+          "35-44|male": {
+            "n_foreign_born_rows": 111,
+            "n_rows": 111,
+            "weighted_foreign_born": 137261.3544752565,
+            "weighted_persons": 137261.3544752565
+          },
+          "45-54|female": {
+            "n_foreign_born_rows": 51,
+            "n_rows": 51,
+            "weighted_foreign_born": 107947.85310992278,
+            "weighted_persons": 107947.85310992278
+          },
+          "45-54|male": {
+            "n_foreign_born_rows": 53,
+            "n_rows": 53,
+            "weighted_foreign_born": 135364.95643769923,
+            "weighted_persons": 135364.95643769923
+          },
+          "55-64|female": {
+            "n_foreign_born_rows": 25,
+            "n_rows": 25,
+            "weighted_foreign_born": 18984.1038198985,
+            "weighted_persons": 18984.1038198985
+          },
+          "55-64|male": {
+            "n_foreign_born_rows": 26,
+            "n_rows": 26,
+            "weighted_foreign_born": 67247.88569394451,
+            "weighted_persons": 67247.88569394451
+          },
+          "65+|female": {
+            "n_foreign_born_rows": 25,
+            "n_rows": 25,
+            "weighted_foreign_born": 14632.721551352957,
+            "weighted_persons": 14632.721551352957
+          },
+          "65+|male": {
+            "n_foreign_born_rows": 12,
+            "n_rows": 12,
+            "weighted_foreign_born": 19385.57376710341,
+            "weighted_persons": 19385.57376710341
+          }
+        }
+      },
+      "2032": {
+        "alignment": {
+          "control_inflow_thousands": 1740.0,
+          "donor_weight_scale": 0.7418877043308243,
+          "n_rows": 1155,
+          "relative_residual": 1.3381071474360324e-16,
+          "residual_persons": 2.3283064365386963e-10,
+          "scheduled_weighted_persons": 1740000.0000000002,
+          "target_weighted_persons": 1740000.0
+        },
+        "cells_by_age_band_sex": {
+          "0-17|female": {
+            "n_foreign_born_rows": 128,
+            "n_rows": 128,
+            "weighted_foreign_born": 145218.44648959927,
+            "weighted_persons": 145218.44648959927
+          },
+          "0-17|male": {
+            "n_foreign_born_rows": 138,
+            "n_rows": 138,
+            "weighted_foreign_born": 128954.32346918868,
+            "weighted_persons": 128954.32346918868
+          },
+          "18-24|female": {
+            "n_foreign_born_rows": 60,
+            "n_rows": 60,
+            "weighted_foreign_born": 132907.4405838392,
+            "weighted_persons": 132907.4405838392
+          },
+          "18-24|male": {
+            "n_foreign_born_rows": 89,
+            "n_rows": 89,
+            "weighted_foreign_born": 113664.48045205326,
+            "weighted_persons": 113664.48045205326
+          },
+          "25-34|female": {
+            "n_foreign_born_rows": 187,
+            "n_rows": 187,
+            "weighted_foreign_born": 263577.0744484449,
+            "weighted_persons": 263577.0744484449
+          },
+          "25-34|male": {
+            "n_foreign_born_rows": 158,
+            "n_rows": 158,
+            "weighted_foreign_born": 310346.5727976613,
+            "weighted_persons": 310346.5727976613
+          },
+          "35-44|female": {
+            "n_foreign_born_rows": 92,
+            "n_rows": 92,
+            "weighted_foreign_born": 123514.5713352557,
+            "weighted_persons": 123514.5713352557
+          },
+          "35-44|male": {
+            "n_foreign_born_rows": 111,
+            "n_rows": 111,
+            "weighted_foreign_born": 143014.8244233211,
+            "weighted_persons": 143014.8244233211
+          },
+          "45-54|female": {
+            "n_foreign_born_rows": 51,
+            "n_rows": 51,
+            "weighted_foreign_born": 112472.61341991955,
+            "weighted_persons": 112472.61341991955
+          },
+          "45-54|male": {
+            "n_foreign_born_rows": 53,
+            "n_rows": 53,
+            "weighted_foreign_born": 141038.93664766266,
+            "weighted_persons": 141038.93664766266
+          },
+          "55-64|female": {
+            "n_foreign_born_rows": 25,
+            "n_rows": 25,
+            "weighted_foreign_born": 19779.844698576882,
+            "weighted_persons": 19779.844698576882
+          },
+          "55-64|male": {
+            "n_foreign_born_rows": 26,
+            "n_rows": 26,
+            "weighted_foreign_born": 70066.65934578648,
+            "weighted_persons": 70066.65934578648
+          },
+          "65+|female": {
+            "n_foreign_born_rows": 25,
+            "n_rows": 25,
+            "weighted_foreign_born": 15246.069161289906,
+            "weighted_persons": 15246.069161289906
+          },
+          "65+|male": {
+            "n_foreign_born_rows": 12,
+            "n_rows": 12,
+            "weighted_foreign_born": 20198.14272740116,
+            "weighted_persons": 20198.14272740116
+          }
+        }
+      },
+      "2033": {
+        "alignment": {
+          "control_inflow_thousands": 1780.0,
+          "donor_weight_scale": 0.758942594085556,
+          "n_rows": 1155,
+          "relative_residual": 2.616074647796288e-16,
+          "residual_persons": 4.656612873077393e-10,
+          "scheduled_weighted_persons": 1780000.0000000005,
+          "target_weighted_persons": 1780000.0
+        },
+        "cells_by_age_band_sex": {
+          "0-17|female": {
+            "n_foreign_born_rows": 128,
+            "n_rows": 128,
+            "weighted_foreign_born": 148556.80158131424,
+            "weighted_persons": 148556.80158131424
+          },
+          "0-17|male": {
+            "n_foreign_born_rows": 138,
+            "n_rows": 138,
+            "weighted_foreign_born": 131918.79067537692,
+            "weighted_persons": 131918.79067537692
+          },
+          "18-24|female": {
+            "n_foreign_born_rows": 60,
+            "n_rows": 60,
+            "weighted_foreign_born": 135962.78404553668,
+            "weighted_persons": 135962.78404553668
+          },
+          "18-24|male": {
+            "n_foreign_born_rows": 89,
+            "n_rows": 89,
+            "weighted_foreign_born": 116277.45701416946,
+            "weighted_persons": 116277.45701416946
+          },
+          "25-34|female": {
+            "n_foreign_born_rows": 187,
+            "n_rows": 187,
+            "weighted_foreign_born": 269636.3175392138,
+            "weighted_persons": 269636.3175392138
+          },
+          "25-34|male": {
+            "n_foreign_born_rows": 158,
+            "n_rows": 158,
+            "weighted_foreign_born": 317480.97677002137,
+            "weighted_persons": 317480.97677002137
+          },
+          "35-44|female": {
+            "n_foreign_born_rows": 92,
+            "n_rows": 92,
+            "weighted_foreign_born": 126353.98676825009,
+            "weighted_persons": 126353.98676825009
+          },
+          "35-44|male": {
+            "n_foreign_born_rows": 111,
+            "n_rows": 111,
+            "weighted_foreign_born": 146302.52153650095,
+            "weighted_persons": 146302.52153650095
+          },
+          "45-54|female": {
+            "n_foreign_born_rows": 51,
+            "n_rows": 51,
+            "weighted_foreign_born": 115058.19073991773,
+            "weighted_persons": 115058.19073991773
+          },
+          "45-54|male": {
+            "n_foreign_born_rows": 53,
+            "n_rows": 53,
+            "weighted_foreign_born": 144281.21105335606,
+            "weighted_persons": 144281.21105335606
+          },
+          "55-64|female": {
+            "n_foreign_born_rows": 25,
+            "n_rows": 25,
+            "weighted_foreign_born": 20234.553772107385,
+            "weighted_persons": 20234.553772107385
+          },
+          "55-64|male": {
+            "n_foreign_born_rows": 26,
+            "n_rows": 26,
+            "weighted_foreign_born": 71677.38714683907,
+            "weighted_persons": 71677.38714683907
+          },
+          "65+|female": {
+            "n_foreign_born_rows": 25,
+            "n_rows": 25,
+            "weighted_foreign_born": 15596.553509825311,
+            "weighted_persons": 15596.553509825311
+          },
+          "65+|male": {
+            "n_foreign_born_rows": 12,
+            "n_rows": 12,
+            "weighted_foreign_born": 20662.4678475713,
+            "weighted_persons": 20662.4678475713
+          }
+        }
+      },
+      "2034": {
+        "alignment": {
+          "control_inflow_thousands": 1790.0,
+          "donor_weight_scale": 0.7632063165242389,
+          "n_rows": 1155,
+          "relative_residual": 2.6014597056298284e-16,
+          "residual_persons": 4.656612873077393e-10,
+          "scheduled_weighted_persons": 1790000.0000000005,
+          "target_weighted_persons": 1790000.0
+        },
+        "cells_by_age_band_sex": {
+          "0-17|female": {
+            "n_foreign_born_rows": 128,
+            "n_rows": 128,
+            "weighted_foreign_born": 149391.39035424296,
+            "weighted_persons": 149391.39035424296
+          },
+          "0-17|male": {
+            "n_foreign_born_rows": 138,
+            "n_rows": 138,
+            "weighted_foreign_born": 132659.907476924,
+            "weighted_persons": 132659.907476924
+          },
+          "18-24|female": {
+            "n_foreign_born_rows": 60,
+            "n_rows": 60,
+            "weighted_foreign_born": 136726.61991096102,
+            "weighted_persons": 136726.61991096102
+          },
+          "18-24|male": {
+            "n_foreign_born_rows": 89,
+            "n_rows": 89,
+            "weighted_foreign_born": 116930.70115469849,
+            "weighted_persons": 116930.70115469849
+          },
+          "25-34|female": {
+            "n_foreign_born_rows": 187,
+            "n_rows": 187,
+            "weighted_foreign_born": 271151.128311906,
+            "weighted_persons": 271151.128311906
+          },
+          "25-34|male": {
+            "n_foreign_born_rows": 158,
+            "n_rows": 158,
+            "weighted_foreign_born": 319264.57776311133,
+            "weighted_persons": 319264.57776311133
+          },
+          "35-44|female": {
+            "n_foreign_born_rows": 92,
+            "n_rows": 92,
+            "weighted_foreign_born": 127063.84062649871,
+            "weighted_persons": 127063.84062649871
+          },
+          "35-44|male": {
+            "n_foreign_born_rows": 111,
+            "n_rows": 111,
+            "weighted_foreign_born": 147124.44581479582,
+            "weighted_persons": 147124.44581479582
+          },
+          "45-54|female": {
+            "n_foreign_born_rows": 51,
+            "n_rows": 51,
+            "weighted_foreign_born": 115704.58506991726,
+            "weighted_persons": 115704.58506991726
+          },
+          "45-54|male": {
+            "n_foreign_born_rows": 53,
+            "n_rows": 53,
+            "weighted_foreign_born": 145091.7796547794,
+            "weighted_persons": 145091.7796547794
+          },
+          "55-64|female": {
+            "n_foreign_born_rows": 25,
+            "n_rows": 25,
+            "weighted_foreign_born": 20348.231040490013,
+            "weighted_persons": 20348.231040490013
+          },
+          "55-64|male": {
+            "n_foreign_born_rows": 26,
+            "n_rows": 26,
+            "weighted_foreign_born": 72080.0690971022,
+            "weighted_persons": 72080.0690971022
+          },
+          "65+|female": {
+            "n_foreign_born_rows": 25,
+            "n_rows": 25,
+            "weighted_foreign_born": 15684.17459695916,
+            "weighted_persons": 15684.17459695916
+          },
+          "65+|male": {
+            "n_foreign_born_rows": 12,
+            "n_rows": 12,
+            "weighted_foreign_born": 20778.549127613835,
+            "weighted_persons": 20778.549127613835
+          }
+        }
+      },
+      "2035": {
+        "alignment": {
+          "control_inflow_thousands": 1800.0,
+          "donor_weight_scale": 0.7674700389629218,
+          "n_rows": 1155,
+          "relative_residual": 2.5870071517096624e-16,
+          "residual_persons": 4.656612873077393e-10,
+          "scheduled_weighted_persons": 1800000.0000000005,
+          "target_weighted_persons": 1800000.0
+        },
+        "cells_by_age_band_sex": {
+          "0-17|female": {
+            "n_foreign_born_rows": 128,
+            "n_rows": 128,
+            "weighted_foreign_born": 150225.97912717168,
+            "weighted_persons": 150225.97912717168
+          },
+          "0-17|male": {
+            "n_foreign_born_rows": 138,
+            "n_rows": 138,
+            "weighted_foreign_born": 133401.024278471,
+            "weighted_persons": 133401.024278471
+          },
+          "18-24|female": {
+            "n_foreign_born_rows": 60,
+            "n_rows": 60,
+            "weighted_foreign_born": 137490.4557763854,
+            "weighted_persons": 137490.4557763854
+          },
+          "18-24|male": {
+            "n_foreign_born_rows": 89,
+            "n_rows": 89,
+            "weighted_foreign_born": 117583.94529522753,
+            "weighted_persons": 117583.94529522753
+          },
+          "25-34|female": {
+            "n_foreign_born_rows": 187,
+            "n_rows": 187,
+            "weighted_foreign_born": 272665.9390845982,
+            "weighted_persons": 272665.9390845982
+          },
+          "25-34|male": {
+            "n_foreign_born_rows": 158,
+            "n_rows": 158,
+            "weighted_foreign_born": 321048.1787562013,
+            "weighted_persons": 321048.1787562013
+          },
+          "35-44|female": {
+            "n_foreign_born_rows": 92,
+            "n_rows": 92,
+            "weighted_foreign_born": 127773.69448474728,
+            "weighted_persons": 127773.69448474728
+          },
+          "35-44|male": {
+            "n_foreign_born_rows": 111,
+            "n_rows": 111,
+            "weighted_foreign_born": 147946.37009309084,
+            "weighted_persons": 147946.37009309084
+          },
+          "45-54|female": {
+            "n_foreign_born_rows": 51,
+            "n_rows": 51,
+            "weighted_foreign_born": 116350.97939991682,
+            "weighted_persons": 116350.97939991682
+          },
+          "45-54|male": {
+            "n_foreign_born_rows": 53,
+            "n_rows": 53,
+            "weighted_foreign_born": 145902.34825620282,
+            "weighted_persons": 145902.34825620282
+          },
+          "55-64|female": {
+            "n_foreign_born_rows": 25,
+            "n_rows": 25,
+            "weighted_foreign_born": 20461.908308872637,
+            "weighted_persons": 20461.908308872637
+          },
+          "55-64|male": {
+            "n_foreign_born_rows": 26,
+            "n_rows": 26,
+            "weighted_foreign_born": 72482.75104736535,
+            "weighted_persons": 72482.75104736535
+          },
+          "65+|female": {
+            "n_foreign_born_rows": 25,
+            "n_rows": 25,
+            "weighted_foreign_born": 15771.79568409301,
+            "weighted_persons": 15771.79568409301
+          },
+          "65+|male": {
+            "n_foreign_born_rows": 12,
+            "n_rows": 12,
+            "weighted_foreign_born": 20894.630407656372,
+            "weighted_persons": 20894.630407656372
+          }
+        }
+      }
+    },
+    "entrant_provenance_counters": {
+      "by_activation_year": {
+        "2026": {
+          "by_entry_kind": {
+            "immigrant_cohort": 1155
+          },
+          "n_rows": 1155,
+          "weighted_persons": 1340000.0
+        },
+        "2027": {
+          "by_entry_kind": {
+            "immigrant_cohort": 1155
+          },
+          "n_rows": 1155,
+          "weighted_persons": 1350000.0
+        },
+        "2028": {
+          "by_entry_kind": {
+            "immigrant_cohort": 1155
+          },
+          "n_rows": 1155,
+          "weighted_persons": 1390000.0000000002
+        },
+        "2029": {
+          "by_entry_kind": {
+            "immigrant_cohort": 1155
+          },
+          "n_rows": 1155,
+          "weighted_persons": 1460000.0
+        },
+        "2030": {
+          "by_entry_kind": {
+            "immigrant_cohort": 1155
+          },
+          "n_rows": 1155,
+          "weighted_persons": 1570000.0000000005
+        },
+        "2031": {
+          "by_entry_kind": {
+            "immigrant_cohort": 1155
+          },
+          "n_rows": 1155,
+          "weighted_persons": 1670000.0000000002
+        },
+        "2032": {
+          "by_entry_kind": {
+            "immigrant_cohort": 1155
+          },
+          "n_rows": 1155,
+          "weighted_persons": 1740000.0000000002
+        },
+        "2033": {
+          "by_entry_kind": {
+            "immigrant_cohort": 1155
+          },
+          "n_rows": 1155,
+          "weighted_persons": 1780000.0000000005
+        },
+        "2034": {
+          "by_entry_kind": {
+            "immigrant_cohort": 1155
+          },
+          "n_rows": 1155,
+          "weighted_persons": 1790000.0000000005
+        },
+        "2035": {
+          "by_entry_kind": {
+            "immigrant_cohort": 1155
+          },
+          "n_rows": 1155,
+          "weighted_persons": 1800000.0000000005
+        }
+      },
+      "counter_basis": "explicit 'entry_kind' column, not ID arithmetic",
+      "immigrant_cohorts": 11550,
+      "n_rows_by_entry_kind": {
+        "immigrant_cohort": 11550
+      },
+      "weighted_persons_by_entry_kind": {
+        "immigrant_cohort": 15890000.0
+      }
+    },
+    "provenance": {
+      "activation_years": [
+        2026,
+        2027,
+        2028,
+        2029,
+        2030,
+        2031,
+        2032,
+        2033,
+        2034,
+        2035
+      ],
+      "control": {
+        "capture_manifest_sha256": "d6e445ed8dd9deedae9ee9b221d841003230ea9b0e4bad03ded3716cec08176f",
+        "net_alignment_status": "unachievable by construction: the engine has no emigration law, so an entry-only schedule is aligned to gross inflow and its distance from the published net path is reported as entry_only_minus_net_gap",
+        "network_access": "none; reads only the committed, hash-verified snapshot",
+        "publication": "2026 OASDI Trustees Report",
+        "retrieval_timestamp": "2026-09-06T14:55:07Z",
+        "scenario": "intermediate",
+        "snapshot_sha256": "5dfd05e5c5d4bbe413dd97f2256db24d5595e561623455edca3761bbfece89da",
+        "source_document_id": "ssa_trustees_2026_lr5a2",
+        "source_url": "https://www.ssa.gov/oact/TR/2026/lr5a2.html",
+        "table_id": "V.A2",
+        "units": "thousands_of_persons",
+        "universe": "social_security_area",
+        "universe_bridge_status": "unbridged: V.A2 counts the Social Security area, the certified frame counts the Census resident population; any schedule aligned to this control is an ssa_area_proxy"
+      },
+      "donor": {
+        "annual_resolution_disclosure": "CPS year-of-entry is binned, so this donor cannot produce an annual arrival cohort directly; band_midpoint_rounded_up is the stated rule applied, and it is not gradeable against CPS itself. ACS PUMS YOEP would buy annual resolution and is the named successor artifact",
+        "arrival_windows": {
+          "28": [
+            2022,
+            2024
+          ]
+        },
+        "asec_vintage": 2024,
+        "band_split_rule": "band_midpoint_rounded_up",
+        "certified_pin": {
+          "artifact_sha256": "c2065b642ab00da74746afdfd9f06890e5f32f9b10bd6610ff236452d40f39c5",
+          "bundle_id": "us-4.18.8",
+          "country_id": "us",
+          "data_package": "populace-data",
+          "data_version": "0.1.0",
+          "dataset": "populace_us_2024",
+          "hf_filename": "populace_us_2024.h5",
+          "hf_repo_id": "policyengine/populace-us",
+          "hf_repo_type": "dataset",
+          "model_package": "policyengine-us",
+          "model_version": "1.752.2",
+          "policyengine_version": "4.18.8",
+          "reference_period": "2024",
+          "revision": "populace-us-2024-sparse-l0-refit-57k-71a0887-national-only-20260701"
+        },
+        "donor_source": "certified populace deployment frame",
+        "n_donor_rows": 1155,
+        "n_foreign_born_rows": 1155,
+        "peinusyr_codes": [
+          28
+        ],
+        "stock_proxy_disclosure": "stock_proxy: the survey observes a resident survivor/stayer at interview, not an arrival. Education, marriage, disability, employment, earnings and residence all change between reported entry and interview; only age and sex are carried, and only because the donor is restricted to the most recent arrival band (lag 0-2 years)",
+        "universe": "foreign_born_prcitshp_4_or_5",
+        "universe_reason": "PEINUSYR's universe is everyone not born in the fifty states, so the recent-arrival band also holds natives born in PR/outlying areas (PRCITSHP 2) and abroad of US parents (PRCITSHP 3). They are US citizens at birth and appear in neither of Table V.A2's stocks -- internal migration, not immigration -- so they are excluded to match the control's universe",
+        "weighted_donor_persons": 2345368.429538084
+      },
+      "entry_kind": "immigrant_cohort",
+      "frame_coordinate": "year = activation_year - 1, age = entry_age; the loop's first step is a mortality draw at the entry age, then aging advances to entry_age + 1 in the activation year (loop.py:236-239, 262-281; convention per m6_population.py:328-334)",
+      "gated": false,
+      "id_allocation": "projection-wide SyntheticPersonIdAllocator; loop.py:52-61 raises on any overlap with reserved_real_ids",
+      "method": "donor_reweighted_to_control",
+      "method_detail": "every donor row appears once per activation year with its weight scaled by a single factor, so the cohort's weighted total equals the control and its composition equals the donor exactly; no RNG is consumed and no row is resampled",
+      "report_only": true,
+      "sizing_basis": "trustees_va2_gross_positive_inflow",
+      "sizing_basis_disclosure": "a stock-accounting inflow proxy, NOT a count of physical arrivals: V.A2's temporary-or-unlawfully-present inflow counts only those who remain to year-end, so the gross total understates border arrivals and the cohort must not be read as one (2026 OASDI Trustees Report Table V.A2; the same qualification PR #218 section 0 states for this control)",
+      "sizing_excludes": [
+        "outflow (the engine has no emigration law)",
+        "adjustment of status (a reclassification, not a new person)",
+        "total net change (a residual with no literal composition)"
+      ]
+    },
+    "total_rows": 11550,
+    "total_weighted_persons": 15890000.0
+  },
+  "schema_version": "entrant_schedule.v1",
+  "status": "reported"
+}

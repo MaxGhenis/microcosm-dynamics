@@ -156,6 +156,17 @@ POST_REVIEW_SOURCE_EXCLUSIONS = (
     Path("src/populace_dynamics/estimates/anchor_context_registry.py"),
     Path("src/populace_dynamics/estimates/anchor_context_rehearsal.py"),
     Path("src/populace_dynamics/estimates/anchor_context_report.py"),
+    # Report-only entrant-schedule additions: a Trustees V.A2 control reader,
+    # a certified-frame nativity donor, the scheduled-entries builder and the
+    # adapters that EXCLUDE entrants from unfitted domains.  Nothing in the
+    # birth-evidence projection implementation imports them -- they are
+    # reachable only from each other and from
+    # scripts/build_entrant_schedule_v1.py -- so they are outside the reviewed
+    # implementation and must not invalidate its historical identity seal.
+    Path("src/populace_dynamics/data/nativity_frame.py"),
+    Path("src/populace_dynamics/data/trustees_immigration.py"),
+    Path("src/populace_dynamics/engine/entrant_domains.py"),
+    Path("src/populace_dynamics/engine/entrant_schedule.py"),
 )
 POST_REVIEW_SHARED_SOURCE_BLOBS = {
     Path(
