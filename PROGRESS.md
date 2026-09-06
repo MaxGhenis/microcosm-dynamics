@@ -1,200 +1,194 @@
-# Mortality-exposure person identity — journal
+# Review-fixes lane: R2-R5 on the mortality-identity capture
 
-Branch `microcosm-dynamics-mortality-identity-20260906` in
-`/Users/maxghenis/PolicyEngine/_worktrees/microcosm-dynamics-mortality-identity-20260906`.
+**Scope.** Fable review
+`architecture-reviews/microcosm-20260904/dynamics-mortality-identity-fable51-capture.md`
+found nine items (R1-R9) against the mortality-identity lane
+(`microcosm-dynamics-mortality-identity-20260906`, HEAD
+`856c6c62a46ed8dd44e43753b099005f80efadd9`). This lane fixes only the four
+low-severity, non-blocking items: **R2, R3, R4, R5**. R1 (the birth-evidence
+source-identity seal) is explicitly **not** fixed here — see "R1, not
+repaired" below. R6-R9 are Info-severity findings the review says need no
+fix.
 
-The previous lane's journal (two transitions in one graph) is not deleted:
-it is preserved in git history at `1a370c6`, which is this branch's second
-parent. This file follows the repository's one-journal-per-lane convention.
+Local only. No PSID microdata read, no genuine fit run, no forecast, no
+broad test sweep, no nested agents, no remote write of any kind.
 
-## Lineage, measured
+## State
 
-Commands run in this worktree, output quoted from the terminal:
-
-- `git fetch origin --prune` moved `origin/master` `96a5855..5b9621f`.
-- **Upstream base**: `origin/master` =
-  `5b9621fe07e0afbc102d3cab9d8b34c20fe2dd13`
-  ("Progress dashboard: 2026-09-06 morning refresh …", #428).
-- **Accepted frozen candidate**:
-  `1a370c6c9da2c4b0c5a354c33315fc4c8d9e9e74` ("Close the two-transition
-  lane's journal"), read-only; its worktree
-  `_worktrees/microcosm-dynamics-two-transition-20260906` is not edited by
-  this lane.
-- `git merge-base 1a370c6 origin/master` =
-  `96a585511a9bbdaedb7f1d634a5e44269f22d23e`. Neither is an ancestor of the
-  other.
-- **Remote delta, entire**: one commit `5b9621f`, two files,
-  `docs/progress.md` (+2/−1) and `docs/progress/progress.json` (+5/−1).
-  No source, test, script, `gates.yaml` or `runs/` path. It is carried
-  plainly by merge, not reinterpreted.
-- **This branch** starts at `5b9621f` and merges `1a370c6` at
-  `9cac76a6d48e49579e9251f6ce4c8702a8e00716` (no-ff, no conflict; the
-  candidate's 21 changed paths do not intersect the two docs paths).
-- `git diff --stat 1a370c6 9cac76a6` = exactly `docs/progress.md` and
-  `docs/progress/progress.json`. Every source file on this branch is
-  byte-identical to the accepted head before this lane's own edits.
-
-Unrelated source work is preserved: nothing outside this branch was
-touched, and the merge is additive over the accepted candidate.
-
-## Controlling documents read this session
-
-`R = /Users/maxghenis/architecture-reviews/microcosm-20260904`
-
-- `R/dynamics-panel-contract-fable51-capture.md` — F1, F2, F7 are this
-  lane's scope; F3, F4, F5 are recorded as blockers, not implemented.
-- `R/dynamics-genuine-panel-preparation/REPORT.md` — the N1 statement and
-  the refusal record.
-- `R/microcosm-dynamics-two-transition-root-acceptance.json` — the
-  accepted head and its four stated limits.
-- `R/claude-dynamics-population-adapter-coordination-20260906.md` — the
-  ceremony lane holds no change to `scripts/registered_m6_inputs.py`,
-  `engine/refit.py`, `tests/test_registered_m6_inputs.py` or
-  `data/family.py` in any of its 122 worktrees.
-
-## Environment, measured
-
-- `R/dynamics-extra-env/bin/python` — CPython 3.14.4, numpy 2.5.2,
-  pandas 3.0.5. Reused, **not** modified or upgraded.
-- Module identity is bound to *this* worktree, not to any installed
-  editable package. Verified by printing `__file__`:
-  `populace_dynamics`, `populace_dynamics.engine.refit`,
-  `populace_dynamics.graph.runtime`, `registered_m6_inputs` and
-  `build_mortality_floors` all resolve under
-  `_worktrees/microcosm-dynamics-mortality-identity-20260906`.
-  (The env's `site-packages` contains an unrelated `populace_dynamics`
-  copy; `PYTHONPATH=$W/src:$W/scripts` precedes it in `sys.path`.)
-
-Invocation used for every run in this lane:
-
-```bash
-W=/Users/maxghenis/PolicyEngine/_worktrees/microcosm-dynamics-mortality-identity-20260906
-E=/Users/maxghenis/architecture-reviews/microcosm-20260904/dynamics-extra-env
-PYTHONPATH=$W/src:$W/scripts $E/bin/python -m pytest …
-```
-
-## Scope
-
-**In**, from the Fable 5.1 capture:
-
-- **F1** — the adapter drops `person_id` after using it as a merge key;
-  retain it, and give the two `(0, 24)` coverage pad rows distinct
-  reserved negative ids so the pad cannot become a NaN id.
-- **F2** — a repository test pins the seven-column list exactly; update it.
-- **F7** — the graph's `external_vintage_year` default is 2014 while the
-  M6 artifact records 2010; a fixture test pins the mismatch so it cannot
-  be met by accident.
-
-**Out, and why** — recorded as blockers to a scientifically admitted fit,
-not deferred with a disclosure:
-
-- **F3** weight-series population definition changes at 1997.
-- **F4** known deaths with non-exact years are scored as full survival.
-- **F5** nonresponse has no declared ascertainment/censoring convention.
-
-Also unchanged in this increment: the weight-series choice, the mortality
-floor, fitted probabilities, holdout scope, and the graph training schema.
+- Parent worktree confirmed at `856c6c62a46ed8dd44e43753b099005f80efadd9`
+  (verified via `git log -1`).
+- `git fetch origin` compared against `origin/master`
+  (`5b9621fe07e0afbc102d3cab9d8b34c20fe2dd13`, the maintained upstream
+  default branch — confirmed via `git remote show origin`): parent is 29
+  commits ahead, 0 behind (`merge-base` == `origin/master` tip). No
+  divergence; safe to branch without a rebase.
+- Child worktree created at
+  `/Users/maxghenis/PolicyEngine/_worktrees/microcosm-dynamics-mortality-review-fixes-20260906`,
+  branch `microcosm-dynamics-mortality-review-fixes-20260906`, from the
+  parent's exact commit. All eight pre-existing worktrees (including the
+  identity lane, the C20/graph-shadow lanes, and every other active branch)
+  left untouched — `git worktree list` re-verified after creation.
+- `git config core.hooksPath /dev/null` set in this worktree; every commit
+  below additionally passes `--no-verify`.
 
 ## Done
 
-- [x] Read the four controlling documents.
-- [x] Inspected `CLAUDE.md` (no `AGENTS.md` in this repository), git
-      status (clean), branch, remotes.
-- [x] Fetched `origin`, compared the accepted candidate to the latest base.
-- [x] Created this branch/worktree from `5b9621f`; merged `1a370c6` at
-      `9cac76a6`.
-- [x] Verified module identity binds to the edited paths.
-- [x] Baseline: `tests/test_registered_m6_inputs.py` 31 passed; fitted
-      probabilities and pad rows on the invented fixture captured before
-      any edit.
+- **R2** (`docs/design/m6_projection_engine.md`) — appended a new
+  "2.8.10.6 Amendment 3j" section at the true end of the file describing
+  the eight-column `MORTALITY_EXPOSURE_COLUMNS` shape. Line 3115 (the
+  seven-column pin) and every line before the appended section are
+  byte-identical to before — verified by re-reading line 3113-3116 after
+  the edit and by the file growing from 4261 to 4326 lines (pure append,
+  65 lines, all after the prior EOF).
+- **R3** (`scripts/registered_m6_inputs.py`,
+  `assert_unique_person_years`) — the duplicate-key diagnostic no longer
+  calls `int(pid)` on each offending key (which raised `ValueError:
+  cannot convert float NaN to integer` or a base-10 parse error for a
+  malformed id, masking the intended message). It now takes `repr()` of
+  each raw key, bounded to the first five via `itertools.islice`, before
+  they ever reach a numeric cast. Added
+  `test__unique_person_years__reports_a_malformed_key_without_crashing`
+  (NaN and a non-numeric string id) — fails under the old code, passes now.
+- **R4** (`scripts/registered_m6_inputs.py`,
+  `_pad_below_25_projection_coverage`) — replaced the `pd.to_numeric(...,
+  errors="coerce")` guard (which silently accepted digit strings and
+  whole-number floats) with a `pandas.api.types.is_integer_dtype` check,
+  plus a separate `isna()` check for a missing value under a nullable
+  integer dtype. Verified empirically in the pinned interpreter that
+  `is_integer_dtype` is `False` for bool, `str`-cast, fractional-float, and
+  complex128 Series, and `True` for `int64` and nullable `Int64`. Added
+  five new tests: a parametrized dtype-rejection test (boolean, numeric
+  string, fractional float, complex), a missing-value (`pd.NA` under
+  `Int64`) rejection test, and a valid-int64-passthrough test. All 16
+  pre-existing pad/adapter tests still pass unmodified — the legacy
+  seven-column path and every valid `int64` id are unaffected (confirmed
+  by `test__identity__does_not_move_a_single_fitted_probability`, already
+  in the suite and still green).
+- **R5** — two independent fixes:
+  1. `test__unique_person_years__passes_an_id_free_frame_through`
+     (`tests/test_registered_m6_inputs.py`) compared the function's return
+     value against the same object passed in (the function returns its
+     argument unchanged by design), so the assertion was tautological.
+     Now takes `frame.copy()` before the call and compares the result
+     against that independent copy.
+  2. `test__graph_training_kernel__refuses_numpy_identifiers`
+     (`tests/test_registered_m6_training_source.py`) feeds a Python
+     `float`, not a numpy scalar (the docstring already said so — `json.dumps`
+     would fail on a real numpy scalar before the kernel saw it). Renamed to
+     `test__graph_training_kernel__refuses_a_float_identifier`.
+- `black -l 79` and `ruff check` clean on all four changed files (same
+  versions the identity lane's report recorded: black 25.11.0, ruff
+  0.15.0 — run from the system PATH, not the pinned test env, since
+  neither tool is installed there and it must not be modified).
+- Relevant tests green in the pinned env
+  (`architecture-reviews/microcosm-20260904/dynamics-extra-env`, CPython
+  3.14.4 / numpy 2.5.2 / pandas 3.0.5 — module identity checked via
+  `__file__`, resolves to this worktree):
+  `tests/test_registered_m6_inputs.py` +
+  `tests/test_registered_m6_training_source.py` — 62 passed, 0 failed
+  (43 + 12 baseline + 7 new R3/R4 regression tests).
+  Widening to the same graph-serialization/adapter set the identity
+  lane's report exercised (`test_graph_mortality.py`,
+  `test_graph_two_transition.py`, `test_graph_earnings_history.py`,
+  `test_graph_earnings_index.py`, `tests/estimates/test_coordinator.py`,
+  `test_registered_m6_candidate2_inputs.py`,
+  `test_covered_earnings_membership_adjudication.py`): 306 passed, 1
+  failed pre-commit (`test__registered_input_factory__pins_complete_production_source_chain`,
+  which diffs the **working** file against the **committed HEAD blob** —
+  expected to go green once this lane's commits land, since it is a
+  working-tree-vs-HEAD check, not a logic bug). Re-verified green after
+  committing (see "Verification after commit" below).
+- Seven-column numeric parity re-demonstrated post-fix (not just inherited
+  from the identity lane): `test__identity__does_not_move_a_single_fitted_probability`
+  and `test__identity__does_not_move_the_prepared_row_count` (both
+  pre-existing, unmodified) are in the green run above; they compare the
+  seven-column and eight-column fits byte-for-byte on the fourteen-cell
+  fixture. No fitted number changed by R3, R4, or R5 (R3/R4 only add
+  raise branches on malformed input; the well-formed path is untouched
+  code).
 
-- [x] F1/F2 patch (`860f75e`): `person_id` retained as the adapter's
-      leading column; reserved ids `-1`/`-2` on the two `(0, 24)` pad rows,
-      emitted only when the input already carries identity; the seven-column
-      pin becomes an eight-column pin.
-- [x] Non-collision argument, and its runtime guard: a negative observed
-      `person_id` raises rather than colliding.
-- [x] `assert_unique_person_years` reports repeated
-      `(person_id, event_year)` with a count and up to five keys.
-- [x] `PAD_IDENTITY_DISCLOSURE` in the module; a test asserts what it says.
-- [x] F7 bridge tests (`abd1293`): eight fields, Python `int` ids,
-      `external_vintage_year=2010` vs the graph's 2014 default.
-- [x] Cited line spans preserved (`ba9c16a`): nothing is inserted
-      above line 238 of the adapter -- see below.
-- [x] Focused tests, format (black -l 79), lint (ruff): clean.
+## R1, not repaired
 
-## Measured evidence
+Per the review and this task's explicit scope: R1 (the birth-evidence
+source-identity seal, already red at the identity lane's HEAD for three
+unrelated graph modules, and made red-for-a-fourth-reason by
+`scripts/registered_m6_inputs.py` being a reviewed-but-now-edited reducer
+input) is **not** fixed in this lane. No blob pin was added to
+`POST_REVIEW_SHARED_SOURCE_BLOBS`, no exclusion added, no xfail, no
+blanket exemption. The seal is left exactly as red as it was at the
+identity lane's HEAD, now for the same reason (a fourth differing path) —
+confirmed by re-running the seal test at this lane's HEAD (see
+"Verification after commit").
 
-- **Fitted numbers do not move.** On the committed fourteen-cell invented
-  fixture, with and without identity, compared against values captured
-  before any edit: 8 bands, all 16 probabilities, 16 prepared rows and both
-  pad rows identical. The adapter's 8 rows are identical to the pre-patch
-  rows once the added key is dropped.
-- **Focused run**: 308 passed, 3 skipped, 1 failed.
-  - The 3 skips are `test_registered_m6_inputs_oracle.py` -- policyengine-us
-    1.752.2 is not importable in this environment, which is the oracle tier.
-  - The 1 failure is **pre-existing** -- see below.
-- `tests/test_registered_m6_inputs.py` 31 -> 43; new module
-  `tests/test_registered_m6_training_source.py` 12. Collection over the two
-  modules: 31 -> 55, so `tier_counts.json` unit 1711 -> 1735.
+A separate reviewable artifact is written for root:
+`architecture-reviews/microcosm-20260904/dynamics-mortality-review-fixes-seal-repair-option-c.md` —
+the proposed corrected source blob (this lane's final
+`scripts/registered_m6_inputs.py`, sha256 recorded) plus the minimal
+diff root would apply to `first_estimates_birth_evidence.py`'s exclusion
+tuple and `POST_REVIEW_SHARED_SOURCE_BLOBS`, and to
+`tests/estimates/test_birth_evidence_artifact.py`'s literal pin — for root
+to apply **after** root independently reads the corrected source. This
+lane does not apply that patch itself.
 
-## Two things found on the way, neither caused by this lane
+The three optional graph modules named in the review's seal-repair option 1
+(`graph/earnings.py`, `graph/two_transition.py`,
+`graph/two_transition_synthetic.py`) were checked for non-reachability
+using the existing seal's own reachability test
+(`tests/estimates/test_birth_evidence_artifact.py`, the test deriving graph
+modules from the tree) — see the seal-repair artifact for the exact
+command and result. Nothing about the reviewed commit, historical runs,
+gates, or fixtures was changed to perform that check.
 
-**1. The birth-evidence source-identity seal is already broken at the
-accepted head.** `tests/estimates/test_birth_evidence_artifact.py::
-test_reducer_input_identity_matches_reviewed_branch` fails at `1a370c6`
-itself -- measured by running it in a throwaway detached worktree at that
-exact commit, not deduced. `first_estimates_birth_evidence.
-_assert_input_identity` diffs `PRODUCTION_SOURCE_PATHS` (which includes all
-of `src/populace_dynamics`) between the reviewed commit `1c7f354` and HEAD,
-minus `POST_REVIEW_SOURCE_EXCLUSIONS`. Three modules the accepted candidate
-added are inside the sealed path and absent from the exclusions:
+## Verification after commit
 
-- `src/populace_dynamics/graph/earnings.py`
-- `src/populace_dynamics/graph/two_transition.py`
-- `src/populace_dynamics/graph/two_transition_synthetic.py`
+Four commits landed, oldest first:
 
-Their siblings (`__init__.py`, `__main__.py`, `_compat.py`, `model.py`,
-`runtime.py`, `synthetic.py`) *are* excluded, by commit `c85367a` "Keep
-optional graph outside historical birth evidence scope" -- so this reads as
-three files that commit missed. The seal is green at `origin/master`
-(`5b9621f`) and at `96a5855`.
+| Commit | Subject |
+|---|---|
+| `364d9c3e036d365a4136e33bc71da0d626491476` | Report malformed duplicate person-year keys instead of crashing on them (R3 + first half of R5) |
+| `85ac265972666d8c1351a077384dd22b00e24384` | Require an integer person_id dtype before the mortality pad reserves ids (R4) |
+| `1c55cc800f12b2700a0aefe8d72aa861e75acd34` | Rename the training-kernel test that actually feeds a float, not a numpy scalar (second half of R5) |
+| `284c3c2f2aa2d784545329bd24e4668234fb99f7` | Append the eight-column adapter shape as a design-note amendment (R2) |
 
-This lane's edit to `scripts/registered_m6_inputs.py` adds a **fourth**
-differing path to the same already-red check. It is **not repaired here**:
-that file is a reviewed reducer input, not a post-review addition, so
-excluding it or pinning its new blob is a root decision about what the seal
-covers, and pinning a blob would assert a re-review that has not happened.
+All local, hooks disabled (`git -c core.hooksPath=/dev/null commit
+--no-verify`), messages verified by reading them back with `git log -1`.
+`git diff --stat 856c6c62a46ed8dd44e43753b099005f80efadd9 HEAD` (excluding
+this file) touches exactly the four files listed under "Done" — nothing
+else; `git diff --quiet ... -- gates.yaml runs/` confirms both untouched.
 
-**2. Six citations anchor to line numbers inside the adapter.**
-`registered_inputs_staging_law` (48-51) in
-`scripts/build_covered_earnings_membership_adjudication.py`, design-doc
-pointers at 125-137, 184-235 and 238 (twice), and a committed incident
-record at 173. An earlier draft of this patch added seven lines to the
-module docstring, which silently repointed five of the six while every test
-stayed green. The note was moved below the constants: lines 1-238 are now
-byte-identical to the accepted head and the first changed line is 318.
+With the working tree clean at this HEAD:
 
-- [x] Report written to `R/dynamics-mortality-identity-REPORT.md` and
-      `R/dynamics-mortality-identity-REPORT.json`. The reports carry this
-      branch's final tip; the hashes are deliberately **not** repeated here,
-      because a journal that hashes a report that names the journal's commit
-      cannot settle. Every measurement in the reports was taken at
-      `396a8a1`, the last commit that touched source or tests.
+- `tests/test_registered_m6_inputs.py` + `tests/test_registered_m6_training_source.py`
+  + the graph-serialization/adapter set
+  (`test_graph_mortality.py`, `test_graph_two_transition.py`,
+  `test_graph_earnings_history.py`, `test_graph_earnings_index.py`,
+  `tests/estimates/test_coordinator.py`,
+  `test_registered_m6_candidate2_inputs.py`,
+  `test_covered_earnings_membership_adjudication.py`): **307 passed, 0
+  failed** — the one pre-commit failure
+  (`test__registered_input_factory__pins_complete_production_source_chain`)
+  is green now that the working file matches the committed HEAD blob, as
+  predicted.
+- `tests/estimates/test_birth_evidence_artifact.py`: **8 passed, 1
+  failed** — `test_reducer_input_identity_matches_reviewed_branch` fails
+  with `RuntimeError: production sources differ from the reviewed
+  implementation`, the same failure mode as at the identity lane's HEAD,
+  now additionally true of this lane's edited
+  `scripts/registered_m6_inputs.py`. This is the intended, undisturbed R1
+  state.
+- The three optional graph modules
+  (`graph/earnings.py`, `graph/two_transition.py`,
+  `graph/two_transition_synthetic.py`) were confirmed present in the tree
+  and unreachable from the birth-evidence reducer by re-running the
+  existing, unmodified `test_psid_and_graph_exclusions_are_unreachable_from_birth_evidence`
+  helper functions inline — full detail and output in the seal-repair
+  artifact.
 
 ## Next
 
-Nothing in this lane. Root reviews, then sends to Fable. Nothing is pushed.
-
-Two items are root's, not this lane's, and are argued in §6 of the report:
-the birth-evidence seal's three missing graph exclusions (and whether
-`scripts/registered_m6_inputs.py` should join them), and a full-suite tier
-collection to confirm the `tier_counts.json` absolute total.
-
-## Standing limits, restated
-
-No PSID microdata was read. No genuine fit was executed. No forecast, no
-mortality accuracy, no Social Security quantity is validated or claimed.
-Nothing is pushed, no PR, no merge, no publication. The Claude shadow
-graph, the C20 ceremony objects, `gates.yaml` and the committed `runs/`
-artifacts are untouched.
+- Root reads the corrected `scripts/registered_m6_inputs.py` bytes
+  (git blob `c7f4450292c254998b33796d1c7ba167bfc8aede`, sha256 in the
+  seal-repair artifact) and, if satisfied, applies the seal-repair patch
+  and/or the three-graph-module exclusion independently. Not this lane's
+  job.
+- No push, no PR, no merge — none planned from this lane.
