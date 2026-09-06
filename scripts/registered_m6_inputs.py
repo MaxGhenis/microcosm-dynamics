@@ -38,10 +38,7 @@ is no argument and no environment-derived vintage selection beyond
    collapse) and ``mortality_exposure`` from the ``<= T*`` PSID person-interval
    slices via the §2.8.10.3 adapter, then the inert ``(0, 24)``
    projection-coverage pad appended to **both** (§2.8.10.5 F1) so the fitted
-   model spans 0->120 with a ``<25`` hazard of exactly ``0``. The exposure
-   slices carry ``person_id``; the two pad rows are invented and carry the
-   reserved negative ids in ``PAD_PERSON_IDS`` -- read
-   ``PAD_IDENTITY_DISCLOSURE`` before quoting anything derived from them.
+   model spans 0->120 with a ``<25`` hazard of exactly ``0``.
 5. ``return load_m6_inputs(ssa_params=params, ssa_params_vintage=2014,
    claiming_reference=…, mortality_exposure=…, mortality_external_rates=…,
    mortality_external_vintage=2010)`` (boundary_year=2014, earnings_seed=5200).
@@ -465,6 +462,10 @@ PAD_BAND = (0, 24)
 PAD_PERSON_IDS: dict[str, int] = {"female": -1, "male": -2}
 
 #: Read this before quoting any number computed from a padded frame.
+#:
+#: It is stated here rather than in the module docstring on purpose: six
+#: external citations anchor to line numbers in this file (48-51, 125-137,
+#: 173, 184-235, 238), so nothing is inserted above line 238.
 PAD_IDENTITY_DISCLOSURE = (
     "The two (0, 24) rows carrying person_id -1 (female) and -2 (male) are "
     "INVENTED age-coverage pads. They correspond to no PSID person, no "
