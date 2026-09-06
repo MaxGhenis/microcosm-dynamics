@@ -346,11 +346,30 @@ def test__unique_person_years__reports_the_offending_keys():
 
 
 def test__unique_person_years__passes_an_id_free_frame_through():
-    # The seven-column shape has no identity to check.
+    # The seven-column shape has no identity to check. Compare against an
+    # independent copy taken before the call, not against `frame` itself --
+    # the function returns the same object it was given, so comparing the
+    # result to `frame` would compare an object with itself and could not
+    # detect an in-place mutation.
     frame = _fourteen_cell_exposure()
-    pd.testing.assert_frame_equal(
-        factory.assert_unique_person_years(frame), frame
+    expected = frame.copy()
+    result = factory.assert_unique_person_years(frame)
+    pd.testing.assert_frame_equal(result, expected)
+
+
+def test__unique_person_years__reports_a_malformed_key_without_crashing():
+    # A NaN or a non-numeric string id must still produce the duplicate
+    # diagnostic, not an unrelated int-conversion error.
+    frame = pd.DataFrame(
+        {
+            "person_id": [float("nan"), float("nan"), "abc"],
+            "event_year": [2011, 2011, 2012],
+        }
     )
+    with pytest.raises(
+        ValueError, match=r"repeats 2 \(person_id, event_year\) row\(s\)"
+    ):
+        factory.assert_unique_person_years(frame)
 
 
 def test__adapter__dates_every_slice_by_its_interval_closing_wave():

@@ -56,6 +56,7 @@ from __future__ import annotations
 import dataclasses
 import hashlib
 import importlib.metadata
+import itertools
 import json
 import sys
 from collections.abc import Mapping
@@ -336,7 +337,10 @@ def assert_unique_person_years(exposure: pd.DataFrame) -> pd.DataFrame:
     A repeated person-year is double exposure (and possibly a double death)
     in the occurrence/exposure denominator, so it is refused here rather
     than fitted. The message reports the count and up to five offending
-    keys; it never prints a weight, an age or any other person attribute.
+    keys, rendered with ``repr`` rather than ``int`` -- a malformed key
+    (a NaN or a non-numeric string) must still produce this diagnostic, not
+    an unrelated int-conversion error. It never prints a weight, an age or
+    any other person attribute.
 
     A frame without ``person_id`` is returned untouched -- the seven-column
     shape has no identity to check.
@@ -350,10 +354,10 @@ def assert_unique_person_years(exposure: pd.DataFrame) -> pd.DataFrame:
             .drop_duplicates()
             .itertuples(index=False, name=None)
         )
-        sample = [(int(pid), int(year)) for pid, year in keys][:5]
+        sample = ", ".join(repr(key) for key in itertools.islice(keys, 5))
         raise ValueError(
             f"mortality exposure repeats {int(repeated.sum())} "
-            f"(person_id, event_year) row(s); first keys {sample}"
+            f"(person_id, event_year) row(s); first keys [{sample}]"
         )
     return exposure
 
