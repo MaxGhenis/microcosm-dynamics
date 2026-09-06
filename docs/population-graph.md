@@ -284,8 +284,12 @@ first transition's fixture check has failed.
 `earnings2` receives the first transition's carried path as a typed
 artifact edge and its own supplied values as a separate source. It
 requires the prior path to be carried through the transition period, and
-the source to be an uncarried path that closes nobody and holds only
-scenario rows at the one advanced period.
+the source to be an uncarried path that closes nobody, restates no
+coordinate the prior path already holds, and holds only scenario rows at
+the one advanced period. A restated coordinate is refused as an
+overwrite before the period is even looked at, because a row at a period
+the prior path holds is a rewritten history, not a mislabelled future
+value.
 
 Every row the prior path holds is kept. The only rows added are supplied
 values for people who survived this transition, and every survivor must
@@ -371,6 +375,6 @@ closures, withheld rows counted by reason, the known-zero / unknown /
 absent distinction, the accumulator, a signed path whose second period
 cancels a total to a known zero, both terminal cases, a failed gate that
 still lets the later nodes finish, the files the runner writes, and
-thirteen refusals including a model fitted at another boundary, a person
-closed in the prior path and still active, and advanced rows that
-disagree with the survivors.
+fourteen refusals including a restated history coordinate, a model
+fitted at another boundary, a person closed in the prior path and still
+active, and advanced rows that disagree with the survivors.

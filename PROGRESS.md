@@ -134,7 +134,7 @@ runner copies it into plain containers before it goes in the report.
 
 ## Tests
 
-`tests/test_graph_two_transition.py`, 48 cases, all invented. The second
+`tests/test_graph_two_transition.py`, 49 cases, all invented. The second
 period is checked against `apply_mortality` and `advance_age` called
 directly at both periods under the same fitted model and the same keyed
 stream, never against a held-out outcome.
@@ -149,19 +149,20 @@ path whose second period cancels a total to a known zero; the multiyear
 mass receipt naming 2014, 2015 and 2016; both terminal cases; a failed
 gate leaving the later nodes to finish; and the runner's written files.
 
-Refusals: foreign identity, missing survivor value, wrong period, an
-observed row in a scenario source, an already-carried source, a source
-that closes somebody, a duplicate coordinate, three undeclared
-measurement terms, a model fitted at another boundary, a person closed in
-the prior path and still active, a prior path carried through the wrong
-period, and advanced rows disagreeing with the survivors.
+Refusals: foreign identity, missing survivor value, wrong period, a
+restated history coordinate, an observed row in a scenario source, an
+already-carried source, a source that closes somebody, a duplicate
+coordinate, three undeclared measurement terms, a model fitted at another
+boundary, a person closed in the prior path and still active, a prior
+path carried through the wrong period, and advanced rows disagreeing with
+the survivors.
 
 | run | result |
 |---|---|
-| `3ff92b0a`, 123 existing + 48 new | 171 passed |
-| `b55a583f` overlay, same set | 171 passed |
+| `3ff92b0a`, 123 existing + 49 new | 172 passed |
+| `b55a583f` overlay, same set | 172 passed |
 
-`tests/tier_counts.json` `unit` 1662 → 1710, the exact 48 added. Checked
+`tests/tier_counts.json` `unit` 1662 → 1711, the exact 49 added. Checked
 by classifying the whole collected suite (5905 items) with
 `tests/conftest.py:_classify_test_module`: every tier count matches the
 manifest.

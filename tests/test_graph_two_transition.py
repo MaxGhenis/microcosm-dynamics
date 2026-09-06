@@ -816,6 +816,10 @@ def _broken_scenario(tmp_path, mutation, survivors):
         rows[0] = (rows[0][0], 2017, *rows[0][2:])
     elif mutation == "observed_origin":
         rows[0] = (*rows[0][:2], "observed", *rows[0][3:])
+    elif mutation == "restated_history":
+        # A coordinate the prior path already holds: a rewritten
+        # history, not a supplied future value.
+        rows[0] = (rows[0][0], 2014, *rows[0][2:])
     path = tmp_path / "inputs" / f"scenario-{mutation}.json"
     path.write_bytes(replace(scenario, rows=tuple(rows)).to_bytes())
     return path
@@ -828,6 +832,7 @@ def _broken_scenario(tmp_path, mutation, survivors):
         ("missing_survivor", "no supplied 2016 value"),
         ("wrong_period", "not the advanced period"),
         ("observed_origin", "supplies scenario values only"),
+        ("restated_history", "never overwritten"),
     ],
 )
 def test_a_mismatched_second_scenario_is_refused(

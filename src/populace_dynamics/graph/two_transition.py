@@ -284,21 +284,33 @@ def _advance_second(context):
     )
 
 
-def _checked_scenario(payload, params, advanced):
+def _checked_scenario(payload, params, advanced, prior):
     """Parse the supplied second-period source and check what it is.
 
     It is an earnings path in its own right, so it carries the same
     declared measurement terms and the same known/unknown/absent
-    discipline as the history source. What makes it a *scenario* source
-    is checked here: it has not been carried, it closes nobody, and every
-    row it holds is a scenario row at the one advanced period.
+    discipline as the history source, and its own constructor refuses a
+    repeated coordinate. What makes it a *scenario* source is checked
+    here: it has not been carried, it closes nobody, it restates no
+    coordinate the prior path already holds, and every row it holds is a
+    scenario row at the one advanced period.
+
+    The overwrite check runs before the period check on purpose. A row at
+    a period the prior path already holds is a restated history, and
+    saying so is more useful than saying the period is not the advanced
+    one.
     """
     artifact = runtime_module._checked_path(payload, params)
     if artifact.carried_through_period is not None:
         raise ValueError("a supplied scenario source has not been carried yet")
     if artifact.closed:
         raise ValueError("a supplied scenario source closes nobody")
-    for _, period, origin, _, _ in artifact.rows:
+    for person, period, origin, _, _ in artifact.rows:
+        if prior.at(person, period) is not None:
+            raise ValueError(
+                f"person {person} period {period} already has a value; "
+                "an earnings path is never overwritten"
+            )
         if origin != "scenario":
             raise ValueError(
                 f"the {advanced} source holds an {origin!r} row; it supplies "
@@ -335,7 +347,7 @@ def _earnings_second(context):
             f"{prior.carried_through_period}, not {transition}"
         )
     supplied = _checked_scenario(
-        context.sources[SCENARIO_SOURCE].read_bytes(), params, advanced
+        context.sources[SCENARIO_SOURCE].read_bytes(), params, advanced, prior
     )
     observations = context.tables[OBS]
     periods = _periods(context, observations).to_numpy()
@@ -353,16 +365,11 @@ def _earnings_second(context):
         raise ValueError(
             f"people {reopened} are closed and still active at {transition}"
         )
-    for person, period, _, _, _ in supplied.rows:
+    for person, _, _, _, _ in supplied.rows:
         if person not in population:
             raise ValueError(
                 f"the scenario source holds person {person}, "
                 "who is not in this population"
-            )
-        if prior.at(person, period) is not None:
-            raise ValueError(
-                f"person {person} period {period} already has a value; "
-                "an earnings path is never overwritten"
             )
     scenario = {row[0]: row for row in supplied.rows}
     unsupplied = [person for person in survivors if person not in scenario]
