@@ -56,7 +56,6 @@ from __future__ import annotations
 import dataclasses
 import hashlib
 import importlib.metadata
-import itertools
 import json
 import sys
 from collections.abc import Mapping
@@ -349,6 +348,8 @@ def assert_unique_person_years(exposure: pd.DataFrame) -> pd.DataFrame:
         return exposure
     repeated = exposure.duplicated(["person_id", "event_year"], keep=False)
     if repeated.any():
+        import itertools
+
         keys = (
             exposure.loc[repeated, ["person_id", "event_year"]]
             .drop_duplicates()
@@ -535,21 +536,27 @@ def _pad_below_25_projection_coverage(
       ``>= 0`` and disjoint from any negative sentinel. That domain claim is
       not taken on trust: the observed ids are checked here, and a negative
       observed id raises rather than silently colliding. The check requires
-      an actual integer dtype first (``pandas.api.types.is_integer_dtype``,
-      which is ``False`` for bool, float, complex and object/string
+      an actual signed integer dtype first (``pandas.api.types.is_integer_dtype``
+      and ``dtype.kind == "i"``,
+      rejecting unsigned, bool, float, complex and object/string
       columns) -- a digit string or a whole-number float never reaches the
       sign comparison silently, and a missing id (NaN, or ``pd.NA`` under a
-      nullable integer dtype) raises rather than comparing.
+      nullable integer dtype) raises rather than comparing. Unsigned ids
+      are refused because concatenating them with the negative pad ids can
+      promote the result to floating point and lose person identity.
     """
     import build_mortality_floors as mf
 
     if "person_id" in exposure.columns:
         observed = exposure["person_id"]
-        if not pd.api.types.is_integer_dtype(observed):
+        if (
+            not pd.api.types.is_integer_dtype(observed)
+            or observed.dtype.kind != "i"
+        ):
             raise ValueError(
-                "mortality exposure person_id must be an integer dtype "
+                "mortality exposure person_id must be a signed integer dtype "
                 "before the (0, 24) pad reserves negative ids; got dtype "
-                f"{observed.dtype} (booleans, numeric strings, and "
+                f"{observed.dtype} (unsigned integers, booleans, numeric strings, and "
                 "fractional/complex values are all rejected here)"
             )
         if observed.isna().any():

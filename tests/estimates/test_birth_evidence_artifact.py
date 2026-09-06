@@ -94,6 +94,10 @@ def test_post_review_sources_are_outside_historical_reducer_identity():
         Path("src/populace_dynamics/graph/model.py"),
         Path("src/populace_dynamics/graph/runtime.py"),
         Path("src/populace_dynamics/graph/synthetic.py"),
+        Path("src/populace_dynamics/graph/earnings.py"),
+        Path("src/populace_dynamics/graph/two_transition.py"),
+        Path("src/populace_dynamics/graph/two_transition_synthetic.py"),
+        Path("scripts/registered_m6_inputs.py"),
     )
     assert reducer.POST_REVIEW_SHARED_SOURCE_BLOBS == {
         Path(
@@ -105,6 +109,9 @@ def test_post_review_sources_are_outside_historical_reducer_identity():
         Path(
             "src/populace_dynamics/firms/banding.py"
         ): "e488ac266da29d2b5259575be0a7402fdbab73ab",
+        Path(
+            "scripts/registered_m6_inputs.py"
+        ): "c9cc6f1e71fab96ef830d7e7b434ee216f1a96c8",
     }
 
 

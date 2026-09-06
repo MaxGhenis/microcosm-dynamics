@@ -628,6 +628,10 @@ def test__pad__refuses_an_input_whose_ids_are_not_the_documented_domain():
 @pytest.mark.parametrize(
     "malform",
     [
+        pytest.param(lambda s: s.astype("uint64"), id="unsigned-integer"),
+        pytest.param(
+            lambda s: s.astype("UInt64"), id="nullable-unsigned-integer"
+        ),
         pytest.param(lambda s: s.astype(bool), id="boolean"),
         pytest.param(lambda s: s.astype(str), id="numeric-string"),
         pytest.param(
@@ -665,17 +669,25 @@ def test__pad__refuses_a_missing_person_id_value():
         )
 
 
-def test__pad__accepts_every_valid_int64_id_unchanged():
+@pytest.mark.parametrize("boundary_ids", [False, True])
+def test__pad__preserves_valid_int64_ids(boundary_ids):
     # The dtype guard must not disturb a well-formed int64 id column -- every
     # observed id survives into the padded frame alongside the two reserved
     # pad ids. Fitted-probability invariance is covered separately by
     # test__identity__does_not_move_a_single_fitted_probability.
     exposure = _fourteen_cell_exposure_with_ids()
+    if boundary_ids:
+        exposure["person_id"] = pd.Series(
+            [*range(12), 2**53 + 1, 2**63 - 1], dtype="int64"
+        )
     _, padded = factory._pad_below_25_projection_coverage(
         factory.nchs_2010_external_rates(), exposure, boundary_year=2014
     )
     assert padded["person_id"].dtype.kind == "i"
-    assert set(exposure["person_id"]) <= set(padded["person_id"])
+    pd.testing.assert_series_equal(
+        exposure["person_id"],
+        padded["person_id"].iloc[: len(exposure)].reset_index(drop=True),
+    )
 
 
 def test__pad_disclosure__says_the_rows_are_invented_and_admit_nothing():

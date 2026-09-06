@@ -165,6 +165,13 @@ POST_REVIEW_SOURCE_EXCLUSIONS = (
     Path("src/populace_dynamics/graph/model.py"),
     Path("src/populace_dynamics/graph/runtime.py"),
     Path("src/populace_dynamics/graph/synthetic.py"),
+    Path("src/populace_dynamics/graph/earnings.py"),
+    Path("src/populace_dynamics/graph/two_transition.py"),
+    Path("src/populace_dynamics/graph/two_transition_synthetic.py"),
+    # Separately reviewed adapter revision: retained identity and signed-ID
+    # guards leave the seven-column fitted quantities unchanged. Pin both
+    # committed and working bytes below; retain the historical review.
+    Path("scripts/registered_m6_inputs.py"),
 )
 POST_REVIEW_SHARED_SOURCE_BLOBS = {
     Path(
@@ -176,6 +183,9 @@ POST_REVIEW_SHARED_SOURCE_BLOBS = {
     Path(
         "src/populace_dynamics/firms/banding.py"
     ): "e488ac266da29d2b5259575be0a7402fdbab73ab",
+    Path(
+        "scripts/registered_m6_inputs.py"
+    ): "c9cc6f1e71fab96ef830d7e7b434ee216f1a96c8",
 }
 IMPLEMENTATION_REPLAY_ROWS = {
     "birth_source.derived_projection_age": 4_077,
