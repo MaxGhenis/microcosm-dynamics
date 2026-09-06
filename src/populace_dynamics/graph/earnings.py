@@ -10,6 +10,11 @@ three and is deliberately absent.
 Three states are distinguished and never collapsed: a *known* value
 (including a known zero), an explicit *unknown* value, and a period that
 is simply *absent* from the path. Nothing is filled in quietly.
+
+The artifact is immutable, so it indexes its own rows by person and by
+person-period once, when it is built, and answers every later lookup out
+of that index. Reading one person's path or one coordinate therefore
+costs nothing that grows with the size of the population.
 """
 
 from __future__ import annotations
@@ -111,7 +116,13 @@ class EarningsPathArtifact:
         parse_price_basis(self.price_basis)
         if not self.rows:
             raise ValueError("an earnings path needs at least one row")
-        seen = set()
+        # Rows and closures are copied into tuples before anything is
+        # indexed off them. A caller who hands in a list and then edits
+        # it is editing their own list, not this path, so the index can
+        # never describe rows the artifact no longer holds.
+        frozen_rows = []
+        cells = {}
+        by_person = {}
         last = {}
         for row in self.rows:
             if len(row) != 5:
@@ -121,26 +132,32 @@ class EarningsPathArtifact:
             _period(period, "period")
             _token(origin, "origin", ORIGINS)
             _token(status, "status", STATUSES)
-            if (person, period) in seen:
+            if (person, period) in cells:
                 raise ValueError(
                     f"earnings path repeats person {person} period {period}"
                 )
-            seen.add((person, period))
             last[person] = max(last.get(person, period), period)
             if status == "unknown":
                 if value is not None:
                     raise ValueError("an unknown period carries no value")
-                continue
-            if isinstance(value, bool) or not isinstance(value, (int, float)):
+            elif isinstance(value, bool) or not isinstance(
+                value, (int, float)
+            ):
                 raise ValueError("a known period must carry a number")
-            if not math.isfinite(value):
+            elif not math.isfinite(value):
                 raise ValueError("a known period must be finite")
-            if value < 0 and self.sign_domain == "nonnegative":
+            elif value < 0 and self.sign_domain == "nonnegative":
                 raise ValueError(
                     "this path declares nonnegative earnings; "
                     f"person {person} period {period} is negative"
                 )
+            frozen_rows.append((person, period, origin, status, value))
+            cells[(person, period)] = (origin, status, value)
+            by_person.setdefault(person, []).append(
+                (period, origin, status, value)
+            )
         closed_people = set()
+        frozen_closed = []
         for entry in self.closed:
             if len(entry) != 2:
                 raise ValueError("each closure needs a person and a period")
@@ -157,11 +174,12 @@ class EarningsPathArtifact:
                     f"person {person} is closed after {period} but holds "
                     f"a row at {last[person]}"
                 )
+            frozen_closed.append((person, period))
         if self.carried_through_period is not None:
             _period(self.carried_through_period, "carried_through_period")
             beyond = [
                 period
-                for _, period, _, _, _ in self.rows
+                for _, period, _, _, _ in frozen_rows
                 if period > self.carried_through_period
             ]
             if beyond:
@@ -169,6 +187,19 @@ class EarningsPathArtifact:
                     f"period {max(beyond)} is past the carried period "
                     f"{self.carried_through_period}"
                 )
+        object.__setattr__(self, "rows", tuple(frozen_rows))
+        object.__setattr__(self, "closed", tuple(frozen_closed))
+        object.__setattr__(
+            self,
+            "_by_person",
+            {
+                person: tuple(sorted(rows, key=lambda row: row[0]))
+                for person, rows in by_person.items()
+            },
+        )
+        object.__setattr__(self, "_cells", cells)
+        object.__setattr__(self, "_people", tuple(sorted(by_person)))
+        object.__setattr__(self, "_closed_people", frozenset(closed_people))
 
     @property
     def accumulable(self):
@@ -182,28 +213,19 @@ class EarningsPathArtifact:
 
     @property
     def people(self):
-        return tuple(sorted({person for person, *_ in self.rows}))
+        return self._people
 
     @property
     def closed_people(self):
-        return frozenset(person for person, _ in self.closed)
+        return self._closed_people
 
     def history(self, person_id):
         """This person's rows, ordered by period; empty if absent."""
-        return tuple(
-            (period, origin, status, value)
-            for person, period, origin, status, value in sorted(
-                self.rows, key=lambda row: (row[0], row[1])
-            )
-            if person == person_id
-        )
+        return self._by_person.get(person_id, ())
 
     def at(self, person_id, period):
         """``(origin, status, value)`` for a coordinate, or ``None``."""
-        for person, own, origin, status, value in self.rows:
-            if person == person_id and own == period:
-                return (origin, status, value)
-        return None
+        return self._cells.get((person_id, period))
 
     def prefix_total(self, person_id, through_period):
         """The bookkeeping sum of known values up to and including a period.
@@ -244,7 +266,7 @@ class EarningsPathArtifact:
         merged. Existing rows keep their values, statuses, and order.
         """
         _period(through_period, "through_period")
-        existing = {(person, period) for person, period, _, _, _ in self.rows}
+        existing = set(self._cells)
         added = []
         for row in rows:
             person, period = row[0], row[1]
