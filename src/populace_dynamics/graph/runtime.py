@@ -6,7 +6,7 @@ is a synthetic engineering integration, separate from the locked M6 loop.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -47,7 +47,9 @@ from populace_dynamics.engine.refit import (
 )
 from populace_dynamics.engine.steps import advance_age, apply_mortality
 
+from . import earnings as earnings_module
 from . import model as model_module
+from .earnings import EarningsPathArtifact
 from .model import (
     MortalityArtifact,
     fit_mortality,
@@ -61,6 +63,9 @@ PID = "person_period_person_id"
 PERIOD_ID = "person_period_period_id"
 OID = "person_period_id"
 MODEL_TYPE = ArtifactType("populace-dynamics.mortality", 1)
+EARNINGS_TYPE = ArtifactType("populace-dynamics.earnings-path", 1)
+EARNINGS_TERMS = ("unit", "price_basis", "calendar", "sign_domain")
+ACCUMULATOR = "cumulative_known_earnings"
 CODEC = "dynamics-mortality-json-v1"
 DEPENDENCIES = ("numpy", "pandas")
 TRAIN_COLUMNS = (
@@ -411,6 +416,201 @@ def _advance(context):
     )
 
 
+def earnings_params(*, unit, price_basis, calendar, sign_domain, accumulate):
+    """The measurement terms a run declares. Nothing here is inferred.
+
+    A path from another country supplies its own currency, calendar, and
+    price basis through these; the graph never guesses a national one.
+    """
+    for name, value in (
+        ("unit", unit),
+        ("price_basis", price_basis),
+        ("calendar", calendar),
+        ("sign_domain", sign_domain),
+    ):
+        if not isinstance(value, str) or not value:
+            raise ValueError(f"the earnings {name} must be declared")
+    if sign_domain not in earnings_module.SIGN_DOMAINS:
+        raise ValueError(
+            f"the earnings sign domain must be one of "
+            f"{list(earnings_module.SIGN_DOMAINS)}"
+        )
+    earnings_module.parse_price_basis(price_basis)
+    if type(accumulate) is not bool:
+        raise ValueError("the earnings accumulate flag must be a boolean")
+    return {
+        "earnings_unit": unit,
+        "earnings_price_basis": price_basis,
+        "earnings_calendar": calendar,
+        "earnings_sign_domain": sign_domain,
+        "earnings_accumulate": accumulate,
+    }
+
+
+def _checked_path(payload, params):
+    """Parse a path and refuse any term the run did not declare."""
+    artifact = EarningsPathArtifact.from_bytes(payload)
+    for name in EARNINGS_TERMS:
+        declared = params[f"earnings_{name}"]
+        found = getattr(artifact, name)
+        if found != declared:
+            raise ValueError(
+                f"the earnings path {name} is {found!r}; "
+                f"the run declares {declared!r}"
+            )
+    if params["earnings_accumulate"] and not artifact.accumulable:
+        raise ValueError(
+            f"a {artifact.price_basis!r} path mixes price periods; "
+            "no cumulative column is defined over it"
+        )
+    return artifact
+
+
+def _earnings_history(context):
+    """Read the declared path and check it against the people who exist."""
+    artifact = _checked_path(
+        context.sources["earnings"].read_bytes(), context.params
+    )
+    if artifact.carried_through_period is not None:
+        raise ValueError("a source earnings path has not been carried yet")
+    if artifact.closed:
+        raise ValueError("a source earnings path closes nobody")
+    boundary = int(context.params["boundary_year"])
+    people = set(context.tables[OBS][PID].tolist())
+    observed = set()
+    for person, period, origin, _, _ in artifact.rows:
+        if person not in people:
+            raise ValueError(
+                f"the earnings path holds person {person}, "
+                "who is not in this population"
+            )
+        if origin == "observed":
+            if period > boundary:
+                raise ValueError(
+                    f"observed period {period} is past the boundary {boundary}"
+                )
+            observed.add(person)
+        elif period != boundary + 1:
+            raise ValueError(
+                f"scenario period {period} is not the advanced period "
+                f"{boundary + 1}"
+            )
+    absent = sorted(people - observed)
+    if absent:
+        raise ValueError(f"people {absent} have no observed earnings period")
+    return KernelResult(
+        artifacts={"history": artifact.to_bytes()},
+        receipt={
+            "people": len(artifact.people),
+            "rows": len(artifact.rows),
+            "boundary_year": boundary,
+        },
+    )
+
+
+def _earnings_carry(context):
+    """Carry the path onto the advanced rows and close the decedents."""
+    params = context.params
+    artifact = _checked_path(context.artifacts["history"].payload, params)
+    boundary = int(params["boundary_year"])
+    advanced = boundary + 1
+    observations = context.tables[OBS]
+    periods = _periods(context, observations).to_numpy()
+    people = observations[PID].to_numpy(dtype=np.int64)
+    survives = observations.survives.to_numpy(dtype=bool)
+    start = periods == boundary
+    survivors = sorted({int(p) for p in people[start & survives]})
+    decedents = sorted({int(p) for p in people[start & ~survives]})
+    if sorted({int(p) for p in people[periods == advanced]}) != survivors:
+        raise ValueError("the advanced rows and the survivors disagree")
+    scenario = {row[0]: row for row in artifact.rows if row[2] == "scenario"}
+    observed = tuple(row for row in artifact.rows if row[2] == "observed")
+    unsupplied = [person for person in survivors if person not in scenario]
+    if unsupplied:
+        raise ValueError(
+            f"survivors {unsupplied} have no supplied {advanced} value"
+        )
+    withheld = [person for person in decedents if person in scenario]
+    last = {}
+    for person, period, _, _, _ in observed:
+        last[person] = max(last.get(person, period), period)
+    # Decedents keep every period they already held and take no new one;
+    # a supplied future value for one is withheld, and said so in the
+    # receipt, rather than written onto a row that does not exist.
+    carried = replace(
+        artifact, rows=observed, closed=(), carried_through_period=None
+    ).carried(
+        [scenario[person] for person in survivors],
+        closed=tuple((person, last[person]) for person in decedents),
+        through_period=advanced,
+    )
+    cells = {(row[0], row[1]): row[2:] for row in carried.rows}
+    accumulate = bool(params["earnings_accumulate"])
+    values = np.full(len(observations), np.nan)
+    totals = np.full(len(observations), np.nan)
+    statuses = []
+    origins = []
+    rows = zip(people, periods, strict=True)
+    for position, (person, period) in enumerate(rows):
+        cell = cells.get((int(person), int(period)))
+        if cell is None:
+            statuses.append("absent")
+            origins.append("absent")
+        else:
+            origin, status, value = cell
+            statuses.append(status)
+            origins.append(origin)
+            if status == "known":
+                values[position] = float(value)
+        if accumulate:
+            total = carried.prefix_total(int(person), int(period))
+            if total is not None:
+                totals[position] = total
+    ids = observations[OID].tolist()
+    columns = {
+        (OBS, "period_earnings"): _series(values, ids, dtype="float64"),
+        (OBS, "period_earnings_status"): _series(
+            statuses, ids, dtype="string"
+        ),
+        (OBS, "period_earnings_origin"): _series(origins, ids, dtype="string"),
+    }
+    if accumulate:
+        columns[(OBS, ACCUMULATOR)] = _series(totals, ids, dtype="float64")
+    evidence = {
+        "scope": "synthetic_engineering",
+        "boundary_year": boundary,
+        "carried_through_period": advanced,
+        "people": len(carried.people),
+        "observed_rows": len(observed),
+        "carried_rows": len(carried.rows),
+        "survivors_carried": len(survivors),
+        "decedents_closed": len(decedents),
+        "scenario_rows_withheld": withheld,
+        "unknown_rows": sum(1 for row in carried.rows if row[3] == "unknown"),
+        "known_zero_rows": sum(
+            1 for row in carried.rows if row[3] == "known" and row[4] == 0.0
+        ),
+        "accumulated": accumulate,
+        "unit": carried.unit,
+        "price_basis": carried.price_basis,
+        "calendar": carried.calendar,
+        "sign_domain": carried.sign_domain,
+        "limitations": [
+            "Retention only: no earnings are fitted, projected, or imputed here.",
+            "A scenario value is a supplied fixture input, not an observed or forecast one.",
+            "Any total is a plain bookkeeping sum in one declared unit and price basis; no wage base, indexation, or high-year selection is applied.",
+        ],
+    }
+    return KernelResult(
+        artifacts={
+            "carried": carried.to_bytes(),
+            "summary": json_bytes(evidence),
+        },
+        columns=columns,
+        receipt=evidence,
+    )
+
+
 def _age_claim(context):
     observations = context.tables[OBS]
     return KernelResult(
@@ -555,9 +755,11 @@ class _Kernel:
         numeric=Numeric.PLATFORM_BITWISE,
         seeded=False,
         gate=False,
+        extra=(),
     ):
         self.ref = ref
         self.function = function
+        self.extra = tuple(extra)
         self.capabilities = Capabilities(
             Determinism.SEEDED if seeded else Determinism.DETERMINISTIC,
             numeric=numeric,
@@ -571,6 +773,7 @@ class _Kernel:
         return source_hash(
             self.function,
             model_module,
+            *self.extra,
             fit_mortality_model,
             prepare_mortality_refit_inputs,
             apply_mortality,
@@ -591,8 +794,14 @@ def build_graph(
     experiment_id="mortality",
     replicate=0,
     base_seed=0,
+    earnings=None,
 ):
-    """Return the declared graph and registered existing-operation wrappers."""
+    """Return the declared graph and registered existing-operation wrappers.
+
+    ``earnings`` is the optional declared measurement terms from
+    :func:`earnings_params`. Without it the graph, its kernels, and its
+    sources are exactly what a mortality-only run has always had.
+    """
     stream = ("sha256-u53-v1", experiment_id, replicate, base_seed)
     keyed_uniform(stream=stream, keys=[])  # Validate even an empty population.
     if (
@@ -696,6 +905,45 @@ def build_graph(
             ),
         ),
     )
+    if earnings is not None:
+        terms = {**earnings, "boundary_year": boundary_year}
+        roots += (
+            Node(
+                "earnings-history",
+                "dynamics.earnings.history@1",
+                population="initial",
+                sources=("earnings",),
+                inputs=(Slice(OBS, ("age",)),),
+                params=terms,
+                artifact_outputs=(ArtifactOutput("history", EARNINGS_TYPE),),
+            ),
+            Node(
+                "earnings",
+                "dynamics.earnings.carry@1",
+                population="advance",
+                artifact_inputs=(
+                    ArtifactInput(
+                        "history", "earnings-history", "history", EARNINGS_TYPE
+                    ),
+                ),
+                inputs=(
+                    Slice(OBS, ("survives",)),
+                    Slice("period", ("period",)),
+                ),
+                params=terms,
+                outputs=(
+                    Owned(OBS, "period_earnings", "float64"),
+                    Owned(OBS, "period_earnings_status", "string"),
+                    Owned(OBS, "period_earnings_origin", "string"),
+                )
+                + (
+                    (Owned(OBS, ACCUMULATOR, "float64"),)
+                    if earnings["earnings_accumulate"]
+                    else ()
+                ),
+                artifact_outputs=(ArtifactOutput("carried", EARNINGS_TYPE),),
+            ),
+        )
     registry = KernelRegistry()
     for kernel in (
         _Kernel(
@@ -721,14 +969,27 @@ def build_graph(
         ),
     ):
         registry.register(kernel)
+    names = ("training", "rates", "initial", "holdout")
+    if earnings is not None:
+        for kernel in (
+            _Kernel(
+                "dynamics.earnings.history@1",
+                _earnings_history,
+                extra=(earnings_module,),
+            ),
+            _Kernel(
+                "dynamics.earnings.carry@1",
+                _earnings_carry,
+                extra=(earnings_module,),
+            ),
+        ):
+            registry.register(kernel)
+        names += ("earnings",)
     SOURCE_CODECS.register(CODEC, _json_source_marker)
     return (
         Graph(
             "dynamics-mortality",
-            tuple(
-                SourceRef(name, CODEC)
-                for name in ("training", "rates", "initial", "holdout")
-            ),
+            tuple(SourceRef(name, CODEC) for name in names),
             roots,
             mass_partition=("period", "period"),
         ),
@@ -742,6 +1003,7 @@ class MortalityGraphRun:
     report: dict
     model_payload: bytes
     next_slice: pd.DataFrame
+    earnings_payload: bytes | None = None
 
 
 def run_mortality_graph(
@@ -757,28 +1019,63 @@ def run_mortality_graph(
     replicate=0,
     base_seed=0,
     household_accounting=False,
+    earnings=None,
+    earnings_unit=None,
+    earnings_price_basis=None,
+    earnings_calendar=None,
+    earnings_sign_domain="nonnegative",
+    earnings_accumulate=False,
 ):
-    """Run/reuse the graph and write artifacts only in the explicit directory."""
+    """Run/reuse the graph and write artifacts only in the explicit directory.
+
+    ``earnings`` is an optional path to a declared earnings path source.
+    Its measurement terms must be stated by the caller, never guessed:
+    when it is given, ``earnings_unit``, ``earnings_price_basis``, and
+    ``earnings_calendar`` are required and must match the path itself.
+    Left out, every output of this function is what it has always been.
+    """
     if household_accounting:
         raise ValueError(
             "household accounting is unsupported by this person-period slice"
         )
-    output = Path(output_dir).resolve()
-    sources = {
-        name: Path(path).resolve()
-        for name, path in (
-            ("training", training),
-            ("rates", rates),
-            ("initial", initial),
-            ("holdout", holdout),
+    declared = (
+        earnings_unit,
+        earnings_price_basis,
+        earnings_calendar,
+        earnings_sign_domain,
+        earnings_accumulate,
+    )
+    if earnings is None:
+        if declared != (None, None, None, "nonnegative", False):
+            raise ValueError(
+                "earnings terms were declared without an earnings path"
+            )
+        terms = None
+    else:
+        terms = earnings_params(
+            unit=earnings_unit,
+            price_basis=earnings_price_basis,
+            calendar=earnings_calendar,
+            sign_domain=earnings_sign_domain,
+            accumulate=earnings_accumulate,
         )
-    }
+    output = Path(output_dir).resolve()
+    named = (
+        ("training", training),
+        ("rates", rates),
+        ("initial", initial),
+        ("holdout", holdout),
+    )
+    if terms is not None:
+        named += (("earnings", earnings),)
+    sources = {name: Path(path).resolve() for name, path in named}
     graph, registry = build_graph(
         boundary_year=boundary_year,
         external_vintage_year=external_vintage_year,
         experiment_id=experiment_id,
         replicate=replicate,
         base_seed=base_seed,
+        earnings=terms,
     )
     output.mkdir(parents=True, exist_ok=True)
     store = ContentStore(output / "store")
@@ -823,25 +1120,39 @@ def run_mortality_graph(
     report["model_artifact_key"] = manifest.nodes["fit"].opaque_artifacts[
         "model"
     ]
+    earnings_payload = None
+    if terms is not None:
+        carry = manifest.nodes["earnings"]
+        earnings_payload = store.load_bytes(carry.opaque_artifacts["carried"])
+        report["earnings"] = parse_json(
+            store.load_bytes(carry.opaque_artifacts["summary"])
+        )
+        report["earnings"]["artifact_key"] = carry.opaque_artifacts["carried"]
     population = manifest.population("advance")
     observations = population.table(OBS)
     next_rows = observations.loc[observations[PERIOD_ID] == boundary_year + 1]
+    columns = {
+        "person_id": next_rows[PID].to_numpy(dtype=np.int64),
+        "age": next_rows.age.to_numpy(dtype=np.int64),
+        "year": np.full(len(next_rows), boundary_year + 1, dtype=np.int64),
+    }
+    if terms is not None:
+        for column in (
+            "period_earnings",
+            "period_earnings_status",
+            "period_earnings_origin",
+        ) + ((ACCUMULATOR,) if earnings_accumulate else ()):
+            columns[column] = next_rows[column].to_numpy()
     next_slice = (
-        pd.DataFrame(
-            {
-                "person_id": next_rows[PID].to_numpy(dtype=np.int64),
-                "age": next_rows.age.to_numpy(dtype=np.int64),
-                "year": np.full(
-                    len(next_rows), boundary_year + 1, dtype=np.int64
-                ),
-            }
-        )
-        .sort_values("person_id")
-        .reset_index(drop=True)
+        pd.DataFrame(columns).sort_values("person_id").reset_index(drop=True)
     )
     (output / "report.json").write_bytes(json_bytes(report))
     (output / "model.json").write_bytes(model_payload)
+    if earnings_payload is not None:
+        (output / "earnings.json").write_bytes(earnings_payload)
     for entity in (OBS, "person", "period"):
         population.table(entity).to_csv(output / f"{entity}.csv", index=False)
     next_slice.to_csv(output / "next_period.csv", index=False)
-    return MortalityGraphRun(manifest, report, model_payload, next_slice)
+    return MortalityGraphRun(
+        manifest, report, model_payload, next_slice, earnings_payload
+    )

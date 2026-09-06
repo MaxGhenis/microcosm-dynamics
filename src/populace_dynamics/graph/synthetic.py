@@ -76,3 +76,83 @@ def write_synthetic_inputs(directory):
             path.write_bytes(json_bytes(value))
         result[name] = path
     return result
+
+
+def synthetic_earnings_path(
+    *,
+    price_basis="nominal",
+    sign_domain="nonnegative",
+    unit="XTS",
+    calendar="calendar_year",
+    boundary_year=2014,
+    count=20,
+):
+    """Build a hand-specified earnings path for the synthetic population.
+
+    Three observed periods and one supplied next-period value per person.
+    ``XTS`` is the reserved testing currency code; the graph never reads
+    any meaning into the token. The path deliberately holds a known zero,
+    an explicit unknown, and a period that is simply absent, so that the
+    three states can be told apart downstream. Under a ``signed`` domain
+    one person also holds a negative period.
+    """
+    from .earnings import EarningsPathArtifact
+
+    rows = []
+    for i in range(count):
+        person = 100 + i
+        rows.append(
+            (person, boundary_year - 2, "observed", "known", 30000.0 + 500 * i)
+        )
+        if i == 3:
+            rows.append(
+                (person, boundary_year - 1, "observed", "unknown", None)
+            )
+        elif i == 7:
+            pass  # Absent, which is not the same as unknown or as zero.
+        elif i == 1:
+            rows.append((person, boundary_year - 1, "observed", "known", 0.0))
+        elif i == 9 and sign_domain == "signed":
+            rows.append(
+                (person, boundary_year - 1, "observed", "known", -2500.0)
+            )
+        else:
+            rows.append(
+                (
+                    person,
+                    boundary_year - 1,
+                    "observed",
+                    "known",
+                    31000.0 + 500 * i,
+                )
+            )
+        rows.append(
+            (
+                person,
+                boundary_year,
+                "observed",
+                "known",
+                0.0 if i == 5 else 32000.0 + 500 * i,
+            )
+        )
+        rows.append(
+            (person, boundary_year + 1, "scenario", "known", 33000.0 + 500 * i)
+        )
+    return EarningsPathArtifact(
+        source="synthetic_engineering",
+        unit=unit,
+        price_basis=price_basis,
+        calendar=calendar,
+        sign_domain=sign_domain,
+        rows=tuple(rows),
+    )
+
+
+def write_synthetic_earnings(directory, *, name="earnings", **kwargs):
+    """Write one earnings path source; an existing file is preserved."""
+    directory = Path(directory)
+    directory.mkdir(parents=True, exist_ok=True)
+    path = directory / f"{name}.json"
+    if not path.exists():
+        path.write_bytes(synthetic_earnings_path(**kwargs).to_bytes())
+    return path
