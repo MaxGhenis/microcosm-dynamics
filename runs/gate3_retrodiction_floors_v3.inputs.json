@@ -1,0 +1,54 @@
+{
+  "artifact": "gate3_retrodiction_floors_v3.json",
+  "status": "SOURCE_INPUT_DIGESTS",
+  "source_inputs": [
+    {
+      "path": "data/external/ssa_claim_ages_2014supplement.json",
+      "sha256": "b88e45a08909f0f88a0ff37074c757891759ec988fd7e9fe14362eebd0abe462",
+      "bytes": 44368,
+      "official_url": "https://www.ssa.gov/policy/docs/statcomps/supplement/2014/6b.html"
+    },
+    {
+      "path": "data/external/ssa_claim_ages_2023supplement.json",
+      "sha256": "f731c9a6b8f9b1727d28fbdd49df6ec700f8762dd4cea30fa1a043c52a7f5b73",
+      "bytes": 67066,
+      "official_url": "https://www.ssa.gov/policy/docs/statcomps/supplement/2023/6b.html"
+    },
+    {
+      "path": "runs/gate3_retrodiction_floors_v1.json",
+      "sha256": "d78721185856650b1898a7e21d31203c4f0cf0f29e5c79e989f676aec1c78875",
+      "bytes": 1848884,
+      "official_url": "in-repository committed evidence artifact (v1, read-only)"
+    },
+    {
+      "path": "scripts/build_gate3_retrodiction_floors.py",
+      "sha256": "eedf2485c48daee3a8d52d214b52f98a17892e466a508400c7281856d1fae720",
+      "bytes": 122924,
+      "official_url": "in-repository committed builder (v1, read-only)"
+    },
+    {
+      "path": "runs/gate3_retrodiction_floors_v2.json",
+      "sha256": "385cb7c5e780f5bd174740542c37da191d7d6ee2fa96babafd1cc7a13614461d",
+      "bytes": 874103,
+      "official_url": "in-repository committed evidence artifact (v2, read-only)"
+    },
+    {
+      "path": "scripts/build_gate3_retrodiction_floors_v2.py",
+      "sha256": "726ad3a13cbdfc013f9338613df26466af26d5643fec2059769d4d453ad42189",
+      "bytes": 137691,
+      "official_url": "in-repository committed builder (v2, read-only)"
+    },
+    {
+      "path": "src/populace_dynamics/claiming.py",
+      "sha256": "8cfe25b746eeb0148270b03fb92ab455c4fa698041a80980477f7b9cb9231149",
+      "bytes": 14667,
+      "official_url": "in-repository module under the B1 fence check"
+    },
+    {
+      "path": "gates.yaml",
+      "sha256": "596eb4840f4c2e8ef16d883cff8b2fa63828f1b9f8c406037563733d3a2637af",
+      "bytes": 352148,
+      "official_url": "in-repository ratified contract (read-only)"
+    }
+  ]
+}
