@@ -92,9 +92,47 @@ core: the population view exposes no `mass_ledger` attribute (the
 manifest does, keyed by version), and a node receipt holds a
 `mappingproxy` that plain `json.dumps` will not encode.
 
+## The sibling module
+
+`src/populace_dynamics/graph/two_transition.py` calls
+`runtime.build_graph`, keeps every node, kernel and source it returns,
+and adds four nodes, three kernels and one source:
+
+| node | version | what it does |
+|---|---|---|
+| `apply2` | `advance` | applies the same fitted law at the 2015 rows, rewriting `survives` and `death_probability` and preserving 2014 |
+| `advance2` | its own | copies 2015 survivors to 2016 with a declared multiyear mass receipt |
+| `age2` | `advance2` | the already-registered `dynamics.age-claim@1`, named by ref |
+| `earnings2` | `advance2` | carries the first path onto 2016 from a separate `scenario2` source |
+
+`src/populace_dynamics/graph/two_transition_synthetic.py` holds the
+invented second-period source, in its own module so a fixture edit
+cannot move a kernel's implementation hash.
+
+A first chained run against the same inputs as the one-shot run:
+20 rows at 2014, 15 at 2015, 14 at 2016, `fit` reused, one second-step
+decedent, five prior closures merged with it.
+
+### Keys that move, and values that hold
+
+Against `runtime.run_mortality_graph` on identical inputs:
+
+- **Held:** `training`, `fit`, `initial`, `apply`, `advance`, `age`,
+  `earnings-history`.
+- **Moved:** `earnings` and `evaluate`. Both read `survives` (and
+  `evaluate` also `death_probability`), whose owner in version `advance`
+  is now `apply2`, so their input artifact keys move. This is the
+  cascade the plan says to report, not a defect.
+- **Values preserved exactly:** the model payload is byte-identical, the
+  first carried earnings payload is byte-identical, the first mass
+  receipt is equal, and the first earnings summary is equal apart from
+  its store address.
+
+One executor detail cost a fix: a manifest receipt comes back frozen
+(`mappingproxy`/tuples), which `json.dumps` will not encode, so the
+runner copies it into plain containers before it goes in the report.
+
 ## Next
 
-- [ ] Sibling module with the second application, second EXPAND, second
-      age claim and second earnings node.
 - [ ] Focused tests; 123 existing checks on both cores.
 - [ ] Cold/warm witness, module closure, key comparison, report.
