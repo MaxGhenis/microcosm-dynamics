@@ -53,11 +53,14 @@ Runner mechanics. The candidate-10 machinery is reused EXACTLY:
   filter-first load, the person-disjoint 0.2 split, all geometry views, the
   battery on the candidate panel vs the committed reference, the gated
   benefit-space block, the pooled-Q0 diagnostic, and the per-seed storage --
-  byte-for-byte identical in shape to ``runs/gate1_rank_knn_v4.json``'s
-  ``per_seed``). Because ``run_seed`` reads the pairs geometry block from the
-  live (amended) ``gates.yaml``, which no longer carries ``c2st_auc_max``, the
-  per-seed pairs geometry check naturally excludes c2st -- while
-  ``panel_scorecard`` still computes the ``c2st_auc`` SCORE into ``scores``.
+  identical in shape to ``runs/gate1_rank_knn_v4.json``'s ``per_seed`` on
+  every SCORED block, plus one added sibling, ``reported_not_gated``, which
+  publishes the registered battery families that have no committed reference
+  at gate 1 and is read by no check and no verdict). Because ``run_seed``
+  reads the pairs geometry block from the live (amended) ``gates.yaml``,
+  which no longer carries ``c2st_auc_max``, the per-seed pairs geometry check
+  naturally excludes c2st -- while ``panel_scorecard`` still computes the
+  ``c2st_auc`` SCORE into ``scores``.
 * seeds 5-19 generate the candidate and score ONLY the pairs-view ``c2st_auc``,
   via :func:`c10_seed_extension.candidate_pairs_c2st` (byte-for-byte the
   20-seed extension's scoring path).
@@ -651,6 +654,20 @@ def run(
     benefit_pooled = c10._pool_benefit_space(per_seed)
     q0_participation = c10._q0_participation_diagnostics(per_seed, panel)
 
+    # The registered battery families with no committed reference at gate 1
+    # (gates.yaml reported_not_gated), published with the run and scored by
+    # nothing. A per-seed cache written before this block existed serves
+    # results without it, so say so rather than publishing a silent gap.
+    reported_families = c10.collect_reported_families(per_seed)
+    if verbose and reported_families["seeds_missing"]:
+        print(
+            "reported_not_gated: no family values for seed(s) "
+            f"{reported_families['seeds_missing']} -- these came from a "
+            f"cache written before the block existed ({cache_path}). Delete "
+            "the cache and rerun to publish them; the gate verdict is "
+            "unaffected either way."
+        )
+
     reproduction = build_reproduction_block(
         per_seed, pairs_c2st_by_seed, pooled_q0
     )
@@ -713,7 +730,10 @@ def run(
             "composition re-registered one-shot under ratified amendment 2. "
             "Seeds 0-4 are scored by run_gate1_candidate10.run_seed verbatim "
             "(all geometry views, battery, gated benefit-space, pooled Q0; "
-            "per-seed storage byte-identical in shape to gate1_rank_knn_v4). "
+            "per-seed storage identical in shape to gate1_rank_knn_v4 on "
+            "every scored block, plus the reported_not_gated sibling, which "
+            "publishes the registered battery families with no committed "
+            "reference at gate 1 and is read by no check and no verdict). "
             "Because run_seed reads the amended gates.yaml pairs geometry "
             "block, which no longer carries c2st_auc_max, the per-seed pairs "
             "geometry check excludes c2st while panel_scorecard still computes "
@@ -830,6 +850,16 @@ def run(
             ],
         },
         "q0_participation_diagnostics": q0_participation,
+        # The registered battery families with no committed reference at gate
+        # 1 (gates.yaml reported_not_gated), published with the run. Named
+        # *_families, NOT bare "reported_not_gated": at artifact top level
+        # that key is this repository's BOOLEAN marker for "this whole
+        # artifact reads no gate" (34 producers write it True; 38 tests
+        # assert it is True), and a gate artifact is exactly the thing that
+        # does read a gate. The per-seed blocks keep the bare name, where no
+        # such convention exists. Nothing here is scored: see the block's own
+        # note and per-family "gated".
+        "reported_not_gated_families": reported_families,
         "reproduction": reproduction,
         "verdict": {
             "n_seeds_locked": len(LOCKED_SEEDS),

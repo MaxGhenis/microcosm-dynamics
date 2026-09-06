@@ -122,7 +122,9 @@ from run_gate1_baseline import (  # noqa: F401 (re-exported for tests)
     build_panel_view,
     check_battery,
     check_geometry,
+    collect_reported_families,
     compute_battery,
+    compute_reported_families,
     load_filtered_panel,
     load_gate1_thresholds,
     reproduce_battery_reference,
@@ -697,6 +699,13 @@ def run_seed(
     )
     battery_seed_pass = all(c["pass"] for c in battery_checks.values())
 
+    # --- the registered battery families with NO committed reference at gate
+    #     1 (gates.yaml reported_not_gated): published with the run, scored by
+    #     nothing. Computed on the same candidate/holdout pair the gated
+    #     battery and the geometry scorecards use, on their own panels, so
+    #     nothing above or below this line changes.
+    reported_families = compute_reported_families(candidate, holdout)
+
     # Q0 participation diagnostic (reported): generated vs real all-zero share
     # and mean positive periods for the zero-anchor holdout subgroup.
     q0_participation = q0_participation_seed(holdout, candidate, all_anchor)
@@ -766,6 +775,9 @@ def run_seed(
         "battery_values": battery_values,
         "battery_checks": battery_checks,
         "battery_pass": bool(battery_seed_pass),
+        # Reported, never gated: a sibling of the gated blocks above, read by
+        # no check and by no verdict (gates.yaml reported_not_gated).
+        "reported_not_gated": reported_families,
     }
     if benefit_space is not None:
         result["benefit_space"] = benefit_space
@@ -1356,6 +1368,16 @@ def run(verbose: bool = True) -> dict[str, Any]:
             ],
         },
         "q0_participation_diagnostics": q0_participation,
+        # The registered battery families with no committed reference at gate
+        # 1 (gates.yaml reported_not_gated), published with the run. Named
+        # *_families, NOT bare "reported_not_gated": at artifact top level
+        # that key is this repository's BOOLEAN marker for "this whole
+        # artifact reads no gate" (34 producers write it True; 38 tests
+        # assert it is True), and a gate artifact is exactly the thing that
+        # does read a gate. The per-seed blocks keep the bare name, where no
+        # such convention exists. Nothing here is scored: see the block's own
+        # note and per-family "gated".
+        "reported_not_gated_families": collect_reported_families(per_seed),
         "verdict": {
             "n_seeds": len(SEEDS),
             "n_geometry_pass": n_geo,
