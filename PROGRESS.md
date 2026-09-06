@@ -176,8 +176,11 @@ stayed green. The note was moved below the constants: lines 1-238 are now
 byte-identical to the accepted head and the first changed line is 318.
 
 - [x] Report written to `R/dynamics-mortality-identity-REPORT.md`
-      (sha256 `41153ff0e212dbb40025fc414af50744f7c930497cc8760759e679451bdf1a23`)
-      and `R/dynamics-mortality-identity-REPORT.json`.
+      (sha256 `cdfe94332c38c3ca73b7f6ceaaf583898880195ecbcc214497bf31367b1d05c9`)
+      and `R/dynamics-mortality-identity-REPORT.json` (sha256
+      `34497200ca123a32305b471f64ff0f9e49e06f4963e1649570df3d1b62e9bbfb`).
+      Both name `d8277a6` as this lane's HEAD; every measurement in the
+      report was taken at `396a8a1`, which differs only by this file.
 
 ## Next
 
