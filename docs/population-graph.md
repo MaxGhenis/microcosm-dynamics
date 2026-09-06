@@ -155,9 +155,35 @@ Three states stay distinct and none is ever filled in quietly:
 
 | State | In the path | In the columns |
 |-------|-------------|----------------|
-| Known | a row with a finite value, including a known zero | the value, status `known` |
-| Unknown | a row with status `unknown` and no value | `NaN`, status `unknown` |
-| Absent | no row for that person-period | `NaN`, status `absent` |
+| Known | a row with a finite value, including a known zero | the value, status `known`, origin `observed` or `scenario` |
+| Unknown | a row with status `unknown` and no value | `NaN`, status `unknown`, origin `observed` or `scenario` |
+| Absent | no row for that person-period | `NaN`, status `absent`, origin `absent` |
+
+`period_earnings_origin` carries the row's own origin where there is a
+row and the sentinel `absent` where there is none, so the origin column
+never has to be read against the status column to tell a supplied value
+from a missing one.
+
+### What a source must already be
+
+The source path is a starting state, not a state the run has advanced.
+Three things about it are refused rather than repaired:
+
+- **Every person in the population needs at least one `observed` row.**
+  A person the population holds and the path does not is refused by
+  name. Supplying only future values for someone is not enough.
+- **A source that closes anyone is refused.** Closures are what this run
+  produces for its own decedents; a path that arrives with a `closed`
+  list has already been carried by something else.
+- **A source with a `carried_through_period` is refused.** The same
+  reason: it has been carried already, and this run carries from the
+  boundary.
+
+A real panel therefore has to be filtered before it is handed over.
+People who died before the boundary are not in the population and must
+not be in the path, and a path produced by an earlier run cannot be fed
+back in as a source. The graph advances one period, so no carried path
+is ever a source to the next run.
 
 ### Carrying and closing
 
@@ -195,6 +221,18 @@ Reordering rows in the source file changes its bytes, so the two earnings
 nodes recompute; what they produce does not change, because the artifact
 serializes its rows in person-period order.
 
+### Reading cost
+
+The artifact is immutable, so it indexes its rows by person and by
+person-period once, in the pass that validates them, and answers
+`history` and `at` out of that index. Reading one person's path, or one
+coordinate, costs nothing that grows with the population; the cumulative
+column still sums each person's own prefix rows, so a 35-period path
+costs 35 additions per row and no more. Rows and closures handed to the
+constructor are copied into tuples first, so a caller who edits the list
+afterwards cannot leave the index describing rows the path no longer
+holds.
+
 ## Tests
 
 ```sh
@@ -222,5 +260,16 @@ coordinate mutations, refused overwrites, and the accumulator) and the
 node with one (optionality and the untouched default, survivor carry and
 decedent closure, full historical preservation, the period and cumulative
 columns, refused measurement terms, mismatched coordinates, cold/warm
-reuse, descendant-only invalidation, an unchanged mass receipt, visible
-partial failure, and a guard that no engine earnings model is called).
+reuse, descendant-only invalidation, an unchanged mass receipt, a
+refusal that names its node and kernel and writes no manifest, report,
+or columns, and a guard that no engine earnings model is called).
+
+`tests/test_graph_earnings_index.py` covers the path's index: an
+independent reference copy of the pre-index `history`, `at`, `people`,
+`closed_people`, `prefix_total` and `known_total` is run beside the
+artifact's own over signed, known-zero, unknown, absent, cancelling and
+unordered paths, probed at people and periods the paths do not hold. It
+also pins the arithmetic — a cumulative total carried row by row and the
+prefix sum disagree on a cancelling path, and the prefix sum is the
+answer the pre-index code gave — and counts what a lookup touches on a
+1000-person, 35-period path, which is where the index earns its keep.

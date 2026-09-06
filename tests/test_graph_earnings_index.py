@@ -188,9 +188,7 @@ def test_the_index_answers_what_the_old_scans_answered(name):
     assert artifact.people == reference_people(artifact)
     assert artifact.closed_people == reference_closed_people(artifact)
     for person in PROBE_PEOPLE:
-        assert artifact.history(person) == reference_history(
-            artifact, person
-        )
+        assert artifact.history(person) == reference_history(artifact, person)
         assert artifact.known_total(person) == reference_known_total(
             artifact, person
         )
@@ -330,9 +328,9 @@ def test_serialized_bytes_do_not_depend_on_how_the_rows_arrived():
     # from tuples; row order is preserved as given, so the round trip
     # matches the ascending-order one.
     assert EarningsPathArtifact.from_bytes(tuples.to_bytes()) == lists
-    assert hash(lists) == hash(EarningsPathArtifact.from_bytes(
-        tuples.to_bytes()
-    ))
+    assert hash(lists) == hash(
+        EarningsPathArtifact.from_bytes(tuples.to_bytes())
+    )
 
 
 # --- Cost. -------------------------------------------------------------
@@ -472,15 +470,13 @@ def test_a_population_pass_agrees_with_the_reference_on_a_sample():
     artifact = population_path(PEOPLE, PERIODS)
     last = 1980 + PERIODS - 1
     for person in (100, 500, 1099, 2000):
-        assert artifact.history(person) == reference_history(
-            artifact, person
-        )
+        assert artifact.history(person) == reference_history(artifact, person)
         assert artifact.at(person, last) == reference_at(
             artifact, person, last
         )
-        assert artifact.prefix_total(
-            person, last
-        ) == reference_prefix_total(artifact, person, last)
+        assert artifact.prefix_total(person, last) == reference_prefix_total(
+            artifact, person, last
+        )
         # The unknown period in the middle withholds any total past it.
         assert artifact.prefix_total(person, last) is None
     assert artifact.prefix_total(100, 1980) == 1000.0

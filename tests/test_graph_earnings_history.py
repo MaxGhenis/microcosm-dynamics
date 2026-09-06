@@ -487,8 +487,17 @@ def test_a_failed_history_leaves_the_earlier_nodes_visible(
             source, rows=source.rows + ((999, 2014, "observed", "known", 1.0),)
         ).to_bytes()
     )
-    with pytest.raises(REFUSED, match="not in this population"):
-        _run(runtime, inputs, tmp_path, broken, **NOMINAL)
+    failed = tmp_path / "refused"
+    with pytest.raises(REFUSED, match="not in this population") as raised:
+        _run(runtime, inputs, tmp_path, broken, out="refused", **NOMINAL)
+    # The refusal names the node and the kernel that refused.
+    assert "earnings-history" in str(raised.value)
+    assert "dynamics.earnings.history@1" in str(raised.value)
+    # It writes no manifest, no report, and no columns: there is no
+    # partial output to mistake for a finished one. What it leaves is
+    # the store, holding the nodes that ran before the refusal.
+    assert sorted(entry.name for entry in failed.iterdir()) == ["store"]
+    assert any((failed / "store").rglob("*"))
     again = _run(runtime, inputs, tmp_path, _path(tmp_path), **NOMINAL)
     assert all(again.report["cache_hits"].values())
     assert again.earnings_payload == good.earnings_payload
