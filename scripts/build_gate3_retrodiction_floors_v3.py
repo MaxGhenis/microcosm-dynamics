@@ -2003,10 +2003,18 @@ def report_counts(artifact: dict) -> dict:
             "of 9, 70 of 7 and 40 of 6 -- a different statistic over a "
             "different index set. v3 attributes the 252 / 36 / 36 "
             "census to nobody, because no source for it has been "
-            "located, and carries it as no measurement of its own: the "
-            "figures occur in this artifact ONLY inside this correction "
-            "and the `why` beside it, both of which describe the defect "
-            "rather than assert the census."
+            "located, and carries it as no measurement of its own: "
+            "counting BOTH the spaced and the unspaced spelling, the "
+            "figures occur in this artifact ONLY inside THREE fields "
+            "-- this correction, the `why` beside it, and "
+            "answers_the_verifier.3_report_contradicts_artifact."
+            "verdict_in_the_verifier_report, which summarises the "
+            "first verifier's own finding -- and each of the three "
+            "describes the defect rather than asserting the census. "
+            "The correction v3's second sitting wrote here named two "
+            "fields because it counted the spaced spelling alone; the "
+            "second independent verification counted both spellings "
+            "and found the third."
         ),
         "forbidden_strings": list(FORBIDDEN_REPORT_STRINGS),
         "why_forbidden": (
@@ -2017,6 +2025,25 @@ def report_counts(artifact: dict) -> dict:
             "ONCE -- the occurrence inside this list -- so a stale "
             "count cannot be reintroduced anywhere else and the ban "
             "cannot be satisfied by deleting the list."
+        ),
+        "self_description_law": (
+            "FINDING 3'S STANDARD, TURNED ON THESE BYTES. A sentence "
+            "here that describes this artifact must be true of it. "
+            "The check is mechanical and lives in "
+            "tests/test_gate3_retrodiction_floors_v3.py::"
+            "test_every_self_referential_claim_is_registered_and_true"
+            ": every string leaf is matched against a fixed "
+            "self-reference regex; the matching dotted paths must be "
+            "exactly the FOURTEEN registered claims; and each "
+            "registered claim carries its own predicate over the "
+            "serialised bytes. v3's second and fourth sittings ran "
+            "that sweep over report_counts and missed two claims, "
+            "which the second independent verification found by "
+            "running it over every leaf. A self-describing sentence "
+            "added by a later hand fails the registry check until it "
+            "is registered with a predicate of its own. This clause "
+            "is checked too: the same test requires the number it "
+            "names to equal the size of the registry it enforces."
         ),
         "sentences": sentences,
     }
@@ -3192,8 +3219,19 @@ VERIFIER_FINDINGS = {
             "report_counts (every count the report may state, emitted "
             "from a dotted artifact path)",
             "report_counts.forbidden_strings (the stale v1-shaped "
-            "counts, asserted absent from the whole artifact)",
+            "counts: the suite asserts that each of them occurs "
+            "exactly once in the whole serialised artifact -- the "
+            "occurrence inside the list itself -- and NOT that they "
+            "are absent from it, which is the weaker ban that "
+            "deleting the list would satisfy)",
             "report_counts.misattribution_corrected",
+            "report_counts.self_description_law and "
+            "test_every_self_referential_claim_is_registered_and_true "
+            "(Finding 3's standard turned on these bytes: every "
+            "string leaf matching the fixed self-reference regex must "
+            "be one of the fourteen registered claims, and each "
+            "registered claim carries its own predicate over the "
+            "serialised bytes)",
         ],
     },
     "4_report_only_regression": {

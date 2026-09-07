@@ -37,6 +37,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 import sys
 from decimal import ROUND_HALF_EVEN, Decimal
 from pathlib import Path
@@ -833,6 +834,282 @@ def test_the_referee_B_misattribution_is_corrected(artifact):
     text = artifact["report_counts"]["misattribution_corrected"]
     assert "Referee B did not write it" in text
     assert "310" in text and "210" in text and "70" in text and "40" in text
+
+
+# --------------------------------------------------------------------------
+# FINDING 3'S OWN STANDARD, swept over the WHOLE artifact
+#
+# v3 sec 5.5 turned Finding 3's standard on v3's own artifact and rebuilt
+# to fix two false self-descriptions -- but it swept ``report_counts``
+# alone. The SECOND independent verification swept every string leaf and
+# found two more, both in ``answers_the_verifier``:
+#
+#   (c) ``report_counts.misattribution_corrected`` said the census figures
+#       occurred in TWO fields; counting the unspaced spelling as well
+#       they occur in THREE;
+#   (d) ``answers_the_verifier.3_report_contradicts_artifact.closed_by[1]``
+#       said the forbidden strings were "asserted absent from the whole
+#       artifact"; the test asserts each occurs EXACTLY ONCE.
+#
+# The sweep is reproduced here so the class cannot recur. The pattern is
+# the verifier's, applied case-insensitively to every string leaf; the set
+# of matching dotted paths must be EXACTLY the registered fourteen, so a
+# new self-describing sentence anywhere in the artifact fails this test
+# until it is registered with a check of its own; and every registered
+# claim carries a predicate evaluated against the serialised bytes.
+# --------------------------------------------------------------------------
+SELF_REFERENCE_PATTERN = (
+    r"anywhere|nowhere|in this artifact|the test suite|not reproduced"
+    r"|absent from|ONLY inside|occurs exactly once"
+    r"|no measurement of its own|appears only"
+)
+
+#: Both spellings of the census v2's report misattributed to referee B.
+CENSUS_PATTERN = r"252\s*/\s*36\s*/\s*36"
+
+#: The three fields that carry it, in either spelling.
+CENSUS_FIELDS = (
+    "answers_the_verifier.3_report_contradicts_artifact"
+    ".verdict_in_the_verifier_report",
+    "report_counts.misattribution_corrected",
+    "report_counts.why",
+)
+
+
+def _string_leaves(node, prefix=""):
+    """Yield ``(dotted path, string)`` for every string leaf."""
+    if isinstance(node, dict):
+        for key, value in node.items():
+            path = f"{prefix}.{key}" if prefix else str(key)
+            yield from _string_leaves(value, path)
+    elif isinstance(node, list):
+        for index, value in enumerate(node):
+            path = f"{prefix}.{index}" if prefix else str(index)
+            yield from _string_leaves(value, path)
+    elif isinstance(node, str):
+        yield prefix, node
+
+
+def _squeeze(text: str) -> str:
+    return " ".join(text.split())
+
+
+def _forbidden_occur_exactly_once(artifact, blob):
+    for stale in artifact["report_counts"]["forbidden_strings"]:
+        assert blob.count(stale) == 1, (stale, blob.count(stale))
+
+
+def _check_closed_by_forbidden_entry(artifact, blob, text):
+    """(d) The entry must describe the test the suite actually runs."""
+    _forbidden_occur_exactly_once(artifact, blob)
+    assert "occurs exactly once" in text
+    assert "asserted absent from the whole artifact" not in text
+
+
+def _check_pass_rule(artifact, blob, text):
+    blocks = artifact["rolling_origin_provenance"]["blocks"]
+    counts = artifact["pass_rule_draft"]["counts"]
+    assert len(blocks) == counts["n_rolling_origin_blocks"]
+    for years in blocks.values():
+        assert "{" + ", ".join(str(y) for y in years) + "}" in text
+    assert "absent from the resolution vintage imposes NO CONSTRAINT" in text
+    assert counts["leg_2_conjunction"] == "4 of 5 blocks"
+    assert "at least 4 of the 5 blocks pass" in text
+
+
+def _check_block_law(artifact, blob, text):
+    _check_pass_rule(artifact, blob, text)
+    rolling = artifact["rolling_origin_provenance"]
+    assert rolling["block_shape"] == str(tuple(rolling["block_sizes"]))
+    assert rolling["block_shape"] in text
+    assert rolling["blocks_are_equal_sized"] is False
+
+
+def _check_v2_coverage_defect(artifact, blob, text):
+    """v2's enumeration left 10, and the missing key was a comment."""
+    defect = artifact["cell_partition"]["v1_and_v2_coverage_defect"]
+    left = defect["n_non_eligible_cells_without_contract_text_v2"]
+    assert str(left) in text
+    v2_fragment = json.loads(V2_ARTIFACT.read_text())
+    v2_text = v2_fragment["draft_gates_yaml_fragment"]["text"]
+    lines = [
+        line
+        for line in v2_text.split("\n")
+        if "di_worker_termination_rate" in line
+    ]
+    assert len(lines) == 1, lines
+    assert lines[0].lstrip().startswith("#"), lines[0]
+
+
+def _check_fence_proof(artifact, blob, text):
+    """The fence names FOUR paths, and the proof form names four."""
+    fence = artifact["candidate_reference_fence"]
+    named = sorted(
+        set(
+            re.findall(
+                r"(?:data/external|runs)/[A-Za-z0-9_]+\.json",
+                fence["also_unreadable_at_run_time"],
+            )
+        )
+    )
+    assert len(named) == 4, named
+    assert "the four named paths" in text
+    assert "FileNotFoundError" in text
+
+
+def _check_cure_a_reason(artifact, blob, text):
+    """Nothing outside the claiming table is scored under gate_3."""
+    rule = artifact["description_defect_A8"]["rule_text_verbatim"]
+    assert "gate or tranche's description" in rule.lower()
+    assert "gate OR TRANCHE's description" in text
+    cells = {
+        pair.split("@")[0]
+        for pair in artifact["gated_surface_recommended"]["gated"]
+    }
+    assert cells
+    assert all(cell.startswith("claim_share.") for cell in cells)
+
+
+def _check_rolling_status(artifact, blob, text):
+    """No tolerance reads a number from the rolling-origin block."""
+    rolling_keys = set(artifact["rolling_origin_provenance"])
+    for pair, row in artifact["gated_surface_recommended"]["gated"].items():
+        assert not set(row) & rolling_keys, pair
+        assert row["tolerance"] == _tolerance(row["F2_panel_min"]), pair
+
+
+def _check_fragment_carries_the_block_law(artifact, blob, text):
+    law = artifact["rolling_origin_provenance"]["block_law"]
+    rule = artifact["pass_rule_draft"]["pass_rule"]
+    assert _squeeze(law) in _squeeze(text)
+    assert _squeeze(rule) in _squeeze(text)
+
+
+def _check_no_git_derived_value(artifact, blob, text):
+    assert not re.findall(r"\b[0-9a-f]{40}\b", blob)
+    assert "sidecar" in text
+
+
+def _check_report_counts_law(artifact, blob, text):
+    for name, entry in artifact["report_counts"]["sentences"].items():
+        resolved = _dig(artifact, entry["artifact_path"])
+        assert entry["value"] == resolved, name
+        assert str(resolved) in entry["sentence"], name
+
+
+def _check_misattribution_corrected(artifact, blob, text):
+    """(c) The census occurs in exactly the three fields named here."""
+    census = re.compile(CENSUS_PATTERN)
+    carriers = sorted(
+        path for path, leaf in _string_leaves(artifact) if census.search(leaf)
+    )
+    assert carriers == sorted(CENSUS_FIELDS), carriers
+    assert "THREE fields" in text
+    assert "this correction" in text
+    assert "the `why` beside it" in text
+    assert CENSUS_FIELDS[0] in text
+    assert "Referee B did not write it" in text
+
+
+def _check_why_forbidden(artifact, blob, text):
+    _forbidden_occur_exactly_once(artifact, blob)
+    assert "EXACTLY ONCE" in text
+
+
+#: Every self-referential claim the sweep finds, with the check that
+#: decides whether the bytes bear it out. ``kind`` records the second
+#: verification's own classification.
+SELF_DESCRIPTION_REGISTRY = {
+    "answers_the_verifier.3_report_contradicts_artifact.closed_by.1": (
+        "self_description",
+        _check_closed_by_forbidden_entry,
+    ),
+    "pass_rule_draft.pass_rule": ("rule_statement", _check_pass_rule),
+    "pass_rule_draft.leg_2_block_law": ("rule_statement", _check_block_law),
+    "cell_partition.v1_and_v2_coverage_defect.v2": (
+        "self_description",
+        _check_v2_coverage_defect,
+    ),
+    "candidate_reference_fence.proof_of_non_readability": (
+        "rule_statement",
+        _check_fence_proof,
+    ),
+    "description_defect_A8.cure_A_referee_A.reason_it_is_right": (
+        "rule_statement",
+        _check_cure_a_reason,
+    ),
+    "rolling_origin_provenance.status": (
+        "self_description",
+        _check_rolling_status,
+    ),
+    "rolling_origin_provenance.block_law": (
+        "rule_statement",
+        _check_block_law,
+    ),
+    "draft_gates_yaml_fragment.text_cure_A": (
+        "rule_statement",
+        _check_fragment_carries_the_block_law,
+    ),
+    "draft_gates_yaml_fragment.text_cure_B": (
+        "rule_statement",
+        _check_fragment_carries_the_block_law,
+    ),
+    "reproducibility.no_git_derived_value": (
+        "self_description",
+        _check_no_git_derived_value,
+    ),
+    "report_counts.law": ("self_description", _check_report_counts_law),
+    "report_counts.misattribution_corrected": (
+        "self_description",
+        _check_misattribution_corrected,
+    ),
+    "report_counts.why_forbidden": (
+        "self_description",
+        _check_why_forbidden,
+    ),
+}
+
+
+def test_every_self_referential_claim_is_registered_and_true(artifact):
+    """The sweep the second verification ran, run over the whole artifact.
+
+    Twelve of the fourteen held at ``07aeacc``; two did not. Both are
+    fixed, and the registry is now the gate: a self-describing sentence
+    added anywhere fails this test until it is registered with a check.
+    """
+    pattern = re.compile(SELF_REFERENCE_PATTERN, re.IGNORECASE)
+    leaves = dict(_string_leaves(artifact))
+    found = sorted(
+        path for path, leaf in leaves.items() if pattern.search(leaf)
+    )
+    assert found == sorted(SELF_DESCRIPTION_REGISTRY), (
+        sorted(set(found) - set(SELF_DESCRIPTION_REGISTRY)),
+        sorted(set(SELF_DESCRIPTION_REGISTRY) - set(found)),
+    )
+    assert len(SELF_DESCRIPTION_REGISTRY) == 14
+
+    blob = json.dumps(artifact)
+    for path, (kind, check) in SELF_DESCRIPTION_REGISTRY.items():
+        assert kind in ("self_description", "rule_statement")
+        check(artifact, blob, leaves[path])
+
+    law = artifact["report_counts"]["self_description_law"]
+    assert "FOURTEEN" in law
+    assert "test_every_self_referential_claim_is_registered_and_true" in law
+
+
+def test_the_census_occurs_in_exactly_three_fields_in_both_spellings(
+    artifact,
+):
+    """Blocker 1(c): the spaced count alone said two fields; it is three."""
+    blob = json.dumps(artifact)
+    assert blob.count("252 / 36 / 36") == 3
+    assert blob.count("252/36/36") == 1
+    census = re.compile(CENSUS_PATTERN)
+    carriers = sorted(
+        path for path, leaf in _string_leaves(artifact) if census.search(leaf)
+    )
+    assert carriers == sorted(CENSUS_FIELDS), carriers
 
 
 # --------------------------------------------------------------------------
