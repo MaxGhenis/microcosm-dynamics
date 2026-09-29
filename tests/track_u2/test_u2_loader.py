@@ -926,6 +926,33 @@ def _altered(evidence, **changes):
             "no PSID file",
         ),
         (lambda e: {**e, "extra": 1}, "not exactly"),
+        # Round 3, second pass: only plain JSON data, by exact type.
+        (
+            lambda e: {
+                **e,
+                "input_frames_sha256": type("_S", (str,), {})(
+                    e["input_frames_sha256"]
+                ),
+            },
+            "plain JSON",
+        ),
+        (
+            lambda e: {
+                **e,
+                "psid_files_sha256": MappingProxyType(e["psid_files_sha256"]),
+            },
+            "plain JSON",
+        ),
+        (
+            lambda e: {
+                **e,
+                "psid_files_sha256": {
+                    type("_S", (str,), {})(key): value
+                    for key, value in e["psid_files_sha256"].items()
+                },
+            },
+            "plain JSON",
+        ),
         (
             lambda e: {k: v for k, v in e.items() if k != "target_id"},
             "not exactly",
@@ -1722,3 +1749,342 @@ def test_frames_changed_after_the_check_reach_no_row(
     assert (
         cohort.input_frames_sha256(inputs) != evidence["input_frames_sha256"]
     )
+
+
+# ---------------------------------------------------------------------------
+# Round 3, second pass: the frame digest and the evidence comparison must
+# read exactly what the run computes on.  An independent adversarial
+# verification of the first pass (four blind lanes, invented data) found
+# that type confusion kept the digest and the seal intact while the rows
+# read other values: a str subclass in the evidence record or bound hash,
+# a dict subclass for a frame container, a str-subclass cell or column
+# label, and a role context whose rules were rewritten after construction.
+# INVENTED DATA - NOT A COMPARISON.
+# ---------------------------------------------------------------------------
+class _RiggedText(str):
+    """INVENTED: prints as its text but equals everything and hashes as
+    its text, so every comparison it makes comes out equal."""
+
+    def __eq__(self, other):
+        return True
+
+    def __ne__(self, other):
+        return False
+
+    __hash__ = str.__hash__
+
+
+class _ComparesAs(str):
+    """INVENTED: prints (and so digests) as its own text but compares and
+    hashes as ``other``."""
+
+    def __new__(cls, text, other):
+        value = super().__new__(cls, text)
+        value._other = other
+        return value
+
+    def __eq__(self, other):
+        return str(self._other) == other
+
+    def __ne__(self, other):
+        return str(self._other) != other
+
+    def __hash__(self):
+        return hash(str(self._other))
+
+
+def test_a_rigged_digest_in_the_record_refuses(frozen_load, evidence):
+    """Round 3, second pass: a record whose frame digest is a str subclass
+    holding the frozen text (so it hashes to the bound value) but equal
+    to everything no longer lets forged frames through."""
+
+    rigged = {
+        **evidence,
+        "input_frames_sha256": _RiggedText(evidence["input_frames_sha256"]),
+    }
+    with pytest.raises(runner.U2RunError, match="not valid"):
+        _registered_check(
+            _income_forgery(frozen_load["inputs"]),
+            frozen_load,
+            preregistration_evidence=rigged,
+        )
+
+
+@pytest.mark.parametrize(
+    "where",
+    ["bound", "seal"],
+)
+def test_a_rigged_evidence_hash_refuses(frozen_load, evidence, where):
+    """The bound hash and the seal's evidence hash must be exactly str:
+    a subclass could compare equal to any other hash."""
+
+    import dataclasses
+
+    rechecked = frozen_load["inputs"]
+    sha = frozen_load["sha256"]
+    if where == "bound":
+        inputs, bound = rechecked, _RiggedText(sha)
+    else:
+        inputs, bound = dataclasses.replace(rechecked), sha
+        seal = {**rechecked.loader_seal, cohort.EVIDENCE_KEY: _RiggedText(sha)}
+        object.__setattr__(inputs, "loader_seal", MappingProxyType(seal))
+        object.__setattr__(
+            inputs,
+            "provenance",
+            {**rechecked.provenance, cohort.EVIDENCE_KEY: _RiggedText(sha)},
+        )
+    with pytest.raises(runner.U2RunError, match="exactly|64 lowercase hex"):
+        runner.check_inputs(
+            inputs,
+            ap.REGISTERED_REAL,
+            POINTER,
+            sources.RoleContext.from_registry(),
+            preregistration_evidence_sha256=bound,
+            preregistration_evidence=evidence,
+        )
+
+
+def test_a_self_consistent_other_record_refuses_by_its_hash(
+    frozen_load, evidence
+):
+    """Mutation check (round 3, second pass): a forged seal under the bound
+    hash with a valid record describing the forged frames is refused by
+    the record-hash comparison itself."""
+
+    forged = _income_forgery(frozen_load["inputs"])
+    other = loader.preregistration_evidence(forged)
+    assert other["input_frames_sha256"] == cohort.input_frames_sha256(forged)
+    with pytest.raises(runner.U2RunError, match="hashes to"):
+        _registered_check(forged, frozen_load, preregistration_evidence=other)
+
+
+_CONTAINERS = ("anchors", "family_income", "family_wealth", "employer_dc")
+_LIES = ("get", "__getitem__", "items", "values", "__iter__", "keys")
+
+
+def _two_faced(frames: dict, altered: dict, lie: str):
+    """A dict subclass holding ``frames`` whose ``lie`` method serves
+    ``altered`` instead (INVENTED)."""
+
+    def method(self, *args, **kwargs):
+        return getattr(dict, lie)(altered, *args, **kwargs)
+
+    return type("_TwoFaced", (dict,), {lie: method})(frames)
+
+
+@settings(max_examples=40, deadline=None)
+@given(
+    container=st.sampled_from(_CONTAINERS),
+    lie=st.sampled_from(_LIES),
+)
+def test_no_frame_container_but_a_plain_dict_is_digested(
+    frozen_load, evidence, container, lie
+):
+    """Invariant (round 3, second pass): the frame digest reads only plain
+    dicts keyed by int, so a container that serves the digest one frame
+    and the computation another is refused, whichever method lies; the
+    registered check refuses it even with the loader's own seal copied."""
+
+    import dataclasses
+
+    rechecked = frozen_load["inputs"]
+    frames = getattr(rechecked, container)
+    altered = {wave: frame.copy() for wave, frame in frames.items()}
+    wave = sorted(altered)[0]
+    column = altered[wave].select_dtypes("number").columns[0]
+    altered[wave] = _offset_cell(altered[wave], column, 0, _INVENTED_OFFSET)
+    lying = dataclasses.replace(
+        rechecked, **{container: _two_faced(dict(frames), altered, lie)}
+    )
+    object.__setattr__(lying, "loader_seal", rechecked.loader_seal)
+    with pytest.raises(cohort.U2CohortError, match="plain dict"):
+        cohort.input_frames_sha256(lying)
+    with pytest.raises(runner.U2RunError, match="plain dict"):
+        _registered_check(
+            lying, frozen_load, preregistration_evidence=evidence
+        )
+
+
+def test_a_wave_key_must_be_an_int(frozen_load):
+    import dataclasses
+
+    rechecked = frozen_load["inputs"]
+    income = {float(wave): f for wave, f in rechecked.family_income.items()}
+    with pytest.raises(cohort.U2CohortError, match="int"):
+        cohort.input_frames_sha256(
+            dataclasses.replace(rechecked, family_income=income)
+        )
+
+
+def _string_sites(inputs: cohort.U2Inputs) -> list[tuple]:
+    """``(field, wave or None, column)`` of every string-valued column."""
+
+    sites = []
+    for name in _CONTAINERS:
+        for wave, frame in sorted(getattr(inputs, name).items()):
+            sites += [
+                (name, wave, column)
+                for column in frame.columns
+                if frame[column].dtype == object
+                or isinstance(frame[column].dtype, pd.StringDtype)
+            ]
+    for name in ("design", "persons", "marriage_history", "observed_earnings"):
+        frame = getattr(inputs, name)
+        sites += [
+            (name, None, column)
+            for column in frame.columns
+            if frame[column].dtype == object
+            or isinstance(frame[column].dtype, pd.StringDtype)
+        ]
+    return sites
+
+
+def test_a_string_cell_that_compares_as_another_refuses(frozen_load, evidence):
+    """The verification's minimized case: one ``how_ended`` cell keeps its
+    text (and so the digest) but compares as ``separated``, edited in
+    place with no seal forgery.  The digest now refuses any string cell
+    that is not exactly a str."""
+
+    import dataclasses
+
+    rechecked = frozen_load["inputs"]
+    history = rechecked.marriage_history.copy()
+    column = history.columns.get_loc("how_ended")
+    text = history.iat[0, column]
+    history.iat[0, column] = _ComparesAs(text, "separated")
+    changed = dataclasses.replace(rechecked, marriage_history=history)
+    object.__setattr__(changed, "loader_seal", rechecked.loader_seal)
+    with pytest.raises(cohort.U2CohortError, match="exactly a str"):
+        cohort.input_frames_sha256(changed)
+    with pytest.raises(runner.U2RunError, match="exactly a str"):
+        _registered_check(
+            changed, frozen_load, preregistration_evidence=evidence
+        )
+
+
+@settings(max_examples=40, deadline=None)
+@given(data=st.data())
+def test_no_string_cell_but_an_exact_str_is_digested(frozen_load, data):
+    """Invariant (round 3, second pass): for every string-valued column of
+    every input frame and every row, a cell replaced by a str subclass of
+    the same text (same CSV text, same dtype) is refused by the digest."""
+
+    import dataclasses
+
+    rechecked = frozen_load["inputs"]
+    name, wave, column = data.draw(
+        st.sampled_from(_string_sites(rechecked)), label="site"
+    )
+    frames = getattr(rechecked, name)
+    frame = (frames if wave is None else frames[wave]).copy()
+    row = data.draw(st.integers(0, len(frame) - 1), label="row")
+    position = frame.columns.get_loc(column)
+    text = frame.iat[row, position]
+    assume(type(text) is str)
+    frame.iat[row, position] = _ComparesAs(text, text + "-invented")
+    changed = dataclasses.replace(
+        rechecked,
+        **{name: frame if wave is None else {**frames, wave: frame}},
+    )
+    with pytest.raises(cohort.U2CohortError, match="exactly a str"):
+        cohort.input_frames_sha256(changed)
+
+
+def test_a_column_label_must_be_an_exact_str(frozen_load):
+    """Two labels that print as each other's names would swap two columns'
+    data under an unchanged digest; labels must be distinct exact str."""
+
+    import dataclasses
+
+    rechecked = frozen_load["inputs"]
+    persons = rechecked.persons.copy()
+    persons.columns = [
+        _ComparesAs(str(label), str(label)) for label in persons.columns
+    ]
+    with pytest.raises(cohort.U2CohortError, match="column labels"):
+        cohort.input_frames_sha256(
+            dataclasses.replace(rechecked, persons=persons)
+        )
+
+
+def test_an_unlisted_column_dtype_refuses(frozen_load):
+    import dataclasses
+
+    rechecked = frozen_load["inputs"]
+    persons = rechecked.persons.assign(
+        sex=rechecked.persons["sex"].astype("category")
+    )
+    with pytest.raises(cohort.U2CohortError, match="dtype"):
+        cohort.input_frames_sha256(
+            dataclasses.replace(rechecked, persons=persons)
+        )
+
+
+def test_the_loader_and_generator_frames_meet_the_type_rules(
+    loaded, frozen_load, u2_inputs
+):
+    """The converse: the loader's own frames and the invented generator's
+    pass the digest's type rules unchanged."""
+
+    for inputs in (loaded["inputs"], frozen_load["inputs"], u2_inputs):
+        cohort.input_frames_sha256(inputs)
+
+
+def test_a_role_context_with_rewritten_rules_refuses(frozen_load, evidence):
+    """A frozen RoleContext checks its rules only when built; rules
+    rewritten afterwards (``object.__setattr__``) under the registry kind
+    are refused by the registered check."""
+
+    registry = sources.RoleContext.from_registry()
+    object.__setattr__(
+        registry,
+        "rules",
+        MappingProxyType(dict(sources.declared_role_rules())),
+    )
+    with pytest.raises(runner.U2RunError, match="role rules"):
+        runner.check_inputs(
+            frozen_load["inputs"],
+            ap.REGISTERED_REAL,
+            POINTER,
+            registry,
+            preregistration_evidence_sha256=frozen_load["sha256"],
+            preregistration_evidence=evidence,
+        )
+
+
+def test_a_registered_run_computes_with_a_fresh_role_context(
+    frozen_load, evidence, monkeypatch
+):
+    """Check, then use: the rows get a fresh committed role context, never
+    the caller's object, so rules rewritten after the check (here from the
+    progress callback) reach no row."""
+
+    caller = sources.RoleContext.from_registry()
+    seen = []
+
+    def compute_row(row, inputs, params, births, *, role_context, **kwargs):
+        seen.append(role_context)
+        raise _Reached
+
+    def progress(message):
+        object.__setattr__(
+            caller,
+            "rules",
+            MappingProxyType(dict(sources.declared_role_rules())),
+        )
+
+    monkeypatch.setattr(runner, "_compute_row", compute_row)
+    with pytest.raises(_Reached):
+        runner.run_track_u2(
+            frozen_load["inputs"],
+            parameters.committed_u2_parameters(),
+            data_provenance=ap.REGISTERED_REAL,
+            role_context=caller,
+            registration_pointer=POINTER,
+            preregistration_evidence_sha256=frozen_load["sha256"],
+            preregistration_evidence=evidence,
+            progress=progress,
+        )
+    (used,) = seen
+    assert used is not caller
+    assert dict(used.rules) == dict(sources.RoleContext.from_registry().rules)

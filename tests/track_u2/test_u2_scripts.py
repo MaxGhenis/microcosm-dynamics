@@ -215,6 +215,8 @@ def test_dry_run_records_every_branch_and_refusal(dry_run):
         "registered_run_given_altered_row_definitions": "U2RunError",
         "registered_run_given_the_registered_rows": "U2RunError",
         "invented_run_naming_an_evidence_record": "U2RunError",
+        "frame_container_not_a_plain_dict": "U2CohortError",
+        "string_cell_not_exactly_a_str": "U2CohortError",
     }
     assert all(
         "row_set" in round_3[name]["message"]

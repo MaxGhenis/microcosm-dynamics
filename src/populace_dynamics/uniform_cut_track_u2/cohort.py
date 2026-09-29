@@ -88,12 +88,14 @@ from __future__ import annotations
 import dataclasses
 import hashlib
 import json
+import math
 import sys
 from collections.abc import Mapping
 from dataclasses import asdict, dataclass, field
 from types import MappingProxyType
 from typing import Any
 
+import numpy as np
 import pandas as pd
 
 from populace_dynamics.cohorts import psid2010
@@ -438,32 +440,142 @@ class U2Inputs:
         identity.check_target(self.target_id, "U2Inputs")
 
 
+#: The pandas extension dtypes an input frame may hold, by exact type
+#: (review round 3).  Each stores machine values, or strings whose cells
+#: :func:`_check_frame_types` holds to exact ``str``, so the digest's text
+#: fixes what the computation reads; any other dtype (categorical, a
+#: third-party extension) refuses.
+_EXTENSION_DTYPES: tuple[type, ...] = (
+    pd.StringDtype,
+    pd.BooleanDtype,
+    pd.Int8Dtype,
+    pd.Int16Dtype,
+    pd.Int32Dtype,
+    pd.Int64Dtype,
+    pd.UInt8Dtype,
+    pd.UInt16Dtype,
+    pd.UInt32Dtype,
+    pd.UInt64Dtype,
+    pd.Float32Dtype,
+    pd.Float64Dtype,
+)
+
+
+def _missing(value: Any) -> bool:
+    return (
+        value is None
+        or value is pd.NA
+        or (type(value) is float and math.isnan(value))
+    )
+
+
+def _check_frame_types(name: str, frame: pd.DataFrame) -> None:
+    """Refuse a frame whose digest would not fix what a run reads.
+
+    The digest hashes the column labels' text, the dtype names and the
+    CSV text (:func:`_frame_digest`).  A subclass can print as one value
+    and compare, hash or index as another, so (review round 3) the labels
+    must be distinct exact ``str``; each dtype a NumPy dtype or one of
+    :data:`_EXTENSION_DTYPES`; and every cell of an object or string
+    column an exact ``str`` or missing.  The U2 loader and the invented
+    generator build only such frames.
+    """
+
+    columns = frame.columns
+    if (
+        type(columns) is not pd.Index
+        or any(type(label) is not str for label in columns)
+        or not columns.is_unique
+    ):
+        raise U2CohortError(
+            f"input frame {name}'s column labels must be distinct exact "
+            "str: a label subclass can print as one column's name and "
+            "index another's data (review round 3)"
+        )
+    for position, dtype in enumerate(frame.dtypes):
+        if isinstance(dtype, np.dtype):
+            if dtype.kind != "O":
+                continue
+        elif type(dtype) not in _EXTENSION_DTYPES:
+            raise U2CohortError(
+                f"input frame {name} column {columns[position]!r} has dtype "
+                f"{dtype!r} ({type(dtype).__qualname__}); an input frame "
+                "holds NumPy dtypes and pandas' own nullable and string "
+                "dtypes only (review round 3)"
+            )
+        elif type(dtype) is not pd.StringDtype:
+            continue
+        for value in frame.iloc[:, position].tolist():
+            if type(value) is not str and not _missing(value):
+                raise U2CohortError(
+                    f"input frame {name} column {columns[position]!r} holds "
+                    f"a {type(value).__qualname__} cell; every cell of an "
+                    "object or string column must be exactly a str or "
+                    "missing, since a subclass can print as one value and "
+                    "compare as another (review round 3)"
+                )
+
+
 def _frame_digest(digest: Any, name: str, frame: pd.DataFrame) -> None:
     if type(frame) is not pd.DataFrame:
         raise U2CohortError(
             f"input frame {name} is a {type(frame).__name__}, not a "
             "pandas.DataFrame: a frame's digest must come from its data"
         )
+    _check_frame_types(name, frame)
     digest.update(f"{name}\n".encode())
     digest.update(json.dumps([str(c) for c in frame.columns]).encode())
     digest.update(json.dumps([str(t) for t in frame.dtypes]).encode())
     digest.update(frame.to_csv(index=False, lineterminator="\n").encode())
 
 
-def input_frames_sha256(inputs: U2Inputs) -> str:
-    """SHA-256 of every U2 input frame and the target identity."""
+def _wave_frames(frames: Any, name: str) -> dict[int, pd.DataFrame]:
+    """``frames`` if it is a plain ``dict`` keyed by exact ``int`` waves.
 
+    The digest and the computation read a container through different
+    methods (``[]``, ``get``, iteration), so a mapping subclass could hand
+    the digest the loaded frames and the rows other ones (review round
+    3).  On a plain dict they all read the same frame.
+    """
+
+    if type(frames) is not dict:
+        raise U2CohortError(
+            f"input frames {name} must be a plain dict keyed by wave, not a "
+            f"{type(frames).__qualname__}: a mapping subclass can hand the "
+            "digest other frames than a run reads (review round 3)"
+        )
+    for wave in frames:
+        if type(wave) is not int:
+            raise U2CohortError(
+                f"input frames {name} are keyed by a "
+                f"{type(wave).__qualname__} wave; the U2 loader keys them "
+                "by int (review round 3)"
+            )
+    return frames
+
+
+def input_frames_sha256(inputs: U2Inputs) -> str:
+    """SHA-256 of every U2 input frame and the target identity.
+
+    Refuses inputs whose digest would not fix what a run reads: a frame
+    container that is not a plain ``dict`` keyed by ``int``
+    (:func:`_wave_frames`), and a frame that is not exactly a DataFrame of
+    exact types (:func:`_check_frame_types`).
+    """
+
+    anchors = _wave_frames(inputs.anchors, "anchors")
+    containers = (
+        ("income", _wave_frames(inputs.family_income, "family_income")),
+        ("wealth", _wave_frames(inputs.family_wealth, "family_wealth")),
+        ("employer_dc", _wave_frames(inputs.employer_dc, "employer_dc")),
+    )
     digest = hashlib.sha256()
     digest.update(f"target:{inputs.target_id}\n".encode())
-    for wave in sorted(inputs.anchors):
-        _frame_digest(digest, f"anchor_{wave}", inputs.anchors[wave])
+    for wave in sorted(anchors):
+        _frame_digest(digest, f"anchor_{wave}", anchors[wave])
     for name in ("design", "persons", "marriage_history", "observed_earnings"):
         _frame_digest(digest, name, getattr(inputs, name))
-    for label, frames in (
-        ("income", inputs.family_income),
-        ("wealth", inputs.family_wealth),
-        ("employer_dc", inputs.employer_dc),
-    ):
+    for label, frames in containers:
         for wave in sorted(frames):
             _frame_digest(digest, f"{label}_{wave}", frames[wave])
     return digest.hexdigest()

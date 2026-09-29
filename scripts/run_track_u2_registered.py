@@ -50,8 +50,9 @@ rehashes every frozen file before parsing any record and refuses a
 changed byte, a different file set or a different frame digest; section
 14).  The run then holds the loaded inputs to the same record and its
 bound hash (:func:`populace_dynamics.uniform_cut_track_u2.runner.
-check_inputs`), and the artifact and sidecar are created exclusively.  The artifact
-publishes regardless of outcome and never reads the sealed comparator.
+check_inputs`), and the artifact and sidecar are created exclusively.
+The artifact publishes regardless of outcome and never reads the sealed
+comparator.
 
 Usage::
 

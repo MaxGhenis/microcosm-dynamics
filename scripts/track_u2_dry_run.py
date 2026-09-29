@@ -303,9 +303,12 @@ def _round_3_refusals(
     """The refusals the round-3 review of milestone 2 named, on INVENTED
     inputs: a registered run given a row set (the review's U0 with the
     unscored 2 percent interest, and the registered rows themselves), and
-    an invented run naming an evidence record.  The forged-seal refusal
-    needs loader-sealed inputs, so it is tested on the invented staged
-    files instead (``tests/track_u2/test_u2_loader.py``)."""
+    an invented run naming an evidence record; and two the round-3
+    verification added: the frame digest refuses a frame container that
+    is not a plain dict and a string cell that is not exactly a str.  The
+    forged-seal refusals need loader-sealed inputs, so they are tested on
+    the invented staged files instead
+    (``tests/track_u2/test_u2_loader.py``)."""
 
     headline = rows.REGISTERED_ROWS[rows.HEADLINE_ROW]
     altered = {
@@ -314,6 +317,16 @@ def _round_3_refusals(
             headline, income={"real_interest_rate": 0.02}
         ),
     }
+
+    class _Container(dict):
+        """INVENTED: a dict subclass holding the invented frames."""
+
+    class _Text(str):
+        """INVENTED: a str subclass with its cell's own text."""
+
+    persons = inputs.persons.copy()
+    column = persons.columns.get_loc("sex")
+    persons.iat[0, column] = _Text(persons.iat[0, column])
 
     def registered(row_set: Any) -> dict[str, Any]:
         return _refusal(
@@ -340,6 +353,18 @@ def _round_3_refusals(
                 sources.RoleContext.declared(),
                 # INVENTED record: an invented run refuses any record.
                 preregistration_evidence={"input_frames_sha256": "0" * 64},
+            )
+        ),
+        "frame_container_not_a_plain_dict": _refusal(
+            lambda: cohort.input_frames_sha256(
+                dataclasses.replace(
+                    inputs, family_income=_Container(inputs.family_income)
+                )
+            )
+        ),
+        "string_cell_not_exactly_a_str": _refusal(
+            lambda: cohort.input_frames_sha256(
+                dataclasses.replace(inputs, persons=persons)
             )
         ),
     }

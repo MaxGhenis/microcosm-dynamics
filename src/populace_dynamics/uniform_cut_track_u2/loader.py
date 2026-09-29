@@ -572,6 +572,31 @@ def _hex_map(value: Any, what: str, *, paths: bool) -> dict[str, str]:
     return dict(sorted(out.items()))
 
 
+def _plain_json(value: Any, where: str) -> None:
+    """Refuse anything but plain JSON data, by exact type: ``dict`` with
+    ``str`` keys, ``list``, ``str``, ``int``, ``float``, ``bool`` or
+    ``None``.  A subclass can carry one digest's text (and so its hash)
+    while it compares equal to another (review round 3)."""
+
+    kind = type(value)
+    if kind is dict:
+        for key, item in value.items():
+            if type(key) is not str:
+                raise U2FrozenIdentityMismatch(
+                    f"the evidence record is not plain JSON data: {where} "
+                    f"has a {type(key).__qualname__} key"
+                )
+            _plain_json(item, f"{where}.{key}")
+    elif kind is list:
+        for index, item in enumerate(value):
+            _plain_json(item, f"{where}[{index}]")
+    elif kind not in (str, int, float, bool, type(None)):
+        raise U2FrozenIdentityMismatch(
+            f"the evidence record is not plain JSON data: {where} is a "
+            f"{kind.__qualname__}"
+        )
+
+
 def check_preregistration_evidence(record: Any) -> dict[str, Any]:
     """Refuse a pre-registration evidence record that is not U2's, not
     made under this checkout's pinned registries, or not self-consistent;
@@ -582,11 +607,15 @@ def check_preregistration_evidence(record: Any) -> dict[str, Any]:
     :data:`~populace_dynamics.uniform_cut_track_u2.sources.
     REGISTRY_SHA256`, the cited-source hashes, a nonempty map of PSID
     files (paths relative to the PSID directory) to SHA-256, their bundle
-    digest (recomputed here) and the sealed frame digest.
+    digest (recomputed here) and the sealed frame digest.  Every value
+    below the top-level mapping must be plain JSON data by exact type
+    (:func:`_plain_json`; review round 3), as ``json.loads`` builds it.
     """
 
     if not isinstance(record, Mapping):
         raise U2FrozenIdentityMismatch("the evidence record is no mapping")
+    record = dict(record)
+    _plain_json(record, "the record")
     if set(record) != set(_EVIDENCE_KEYS):
         raise U2FrozenIdentityMismatch(
             f"the evidence record holds keys {sorted(record)}, not exactly "
