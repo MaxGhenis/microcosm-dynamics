@@ -288,6 +288,10 @@ POST_REVIEW_SOURCE_EXCLUSIONS = (
     Path("src/populace_dynamics/track_b/equality.py"),
     Path("src/populace_dynamics/track_b/replay.py"),
     Path("src/populace_dynamics/track_b/runner.py"),
+    # Track B B1 v2 (the reconstructed-reproduction baseline, decision d571)
+    # is opt-in through the B1 runner; nothing in the historical projection
+    # imports it.
+    Path("src/populace_dynamics/track_b/reconstructed.py"),
 )
 POST_REVIEW_SHARED_SOURCE_BLOBS = {
     Path(

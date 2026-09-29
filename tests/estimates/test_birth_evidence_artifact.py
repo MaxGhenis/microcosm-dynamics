@@ -166,6 +166,7 @@ def test_post_review_sources_are_outside_historical_reducer_identity():
         Path("src/populace_dynamics/track_b/equality.py"),
         Path("src/populace_dynamics/track_b/replay.py"),
         Path("src/populace_dynamics/track_b/runner.py"),
+        Path("src/populace_dynamics/track_b/reconstructed.py"),
     )
     assert reducer.POST_REVIEW_SHARED_SOURCE_BLOBS == {
         Path(
@@ -298,6 +299,7 @@ def test_post_review_exclusions_are_unreachable_from_birth_evidence():
         "populace_dynamics.track_b.equality",
         "populace_dynamics.track_b.replay",
         "populace_dynamics.track_b.runner",
+        "populace_dynamics.track_b.reconstructed",
     }
     assert track_b_modules.issubset(module_paths)
     assert psid_exclusions.issubset(module_paths)
