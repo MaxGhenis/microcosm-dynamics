@@ -687,8 +687,11 @@ def preregistration_evidence(inputs: cohort.U2Inputs) -> dict[str, Any]:
     """The frozen identities of loader-sealed inputs (section 20 step 4).
 
     Refuses inputs the U2 loader did not seal, or whose frames or file
-    hashes changed after sealing (``cohort._input_provenance``).  The data
-    directory is not recorded: files are keyed relative to it.
+    hashes changed after sealing (``cohort._input_provenance``), or whose
+    frames do not rebuild from the text their digest hashes
+    (``cohort.rebuilt_input_frames``): a registered run computes only on
+    rebuilt frames, so this refusal comes at step 4, before registration.
+    The data directory is not recorded: files are keyed relative to it.
     """
 
     if type(inputs) is not cohort.U2Inputs:
@@ -698,6 +701,18 @@ def preregistration_evidence(inputs: cohort.U2Inputs) -> dict[str, Any]:
         raise U2LoaderRefusal(
             "pre-registration evidence is recorded only from inputs the U2 "
             f"loader sealed, not {provenance['kind']!r}"
+        )
+    # A registered run computes only on frames rebuilt from the text their
+    # digest hashes (cohort.registered_snapshot); refuse here, before the
+    # digest is frozen, any frame that would not rebuild (review round 3).
+    try:
+        _, rebuilt = cohort.rebuilt_input_frames(inputs)
+    except cohort.U2CohortError as error:
+        raise U2LoaderRefusal(str(error)) from error
+    if rebuilt != provenance["input_frames_sha256"]:
+        raise U2LoaderRefusal(
+            "the inputs' frames rebuild to another digest than the sealed "
+            "one: a registered run could not compute on them"
         )
     return check_preregistration_evidence(
         {

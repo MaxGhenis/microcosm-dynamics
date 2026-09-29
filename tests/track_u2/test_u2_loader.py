@@ -42,7 +42,7 @@ import pytest
 from hypothesis import assume, given, settings
 from hypothesis import strategies as st
 
-from populace_dynamics.data import family, marriage, psid
+from populace_dynamics.data import family, marriage, panels, psid
 from populace_dynamics.estimates import adjusted_poverty as ap
 from populace_dynamics.uniform_cut_track_u2 import (
     cohort,
@@ -1700,9 +1700,10 @@ def test_frames_changed_after_the_check_reach_no_row(
     frozen_load, evidence, monkeypatch
 ):
     """Between the input check and the births, the run reads the caller's
-    parameter provenance.  An edit made there to the frames, with the seal
-    forged again, is refused: the births must carry the frame digest the
-    bound record froze, and every row's build compares with the births."""
+    parameter provenance.  An edit made there to the caller's frames, with
+    the seal forged again, reaches no row: the rows compute on the private
+    snapshot the check rebuilt from the frozen frames' text (round 3,
+    third pass; the second pass refused it at the births check)."""
 
     import dataclasses
 
@@ -1731,11 +1732,14 @@ def test_frames_changed_after_the_check_reach_no_row(
         ),
     )
 
-    def reached(*args, **kwargs):
+    seen = []
+
+    def compute_row(row, row_inputs, *args, **kwargs):
+        seen.append(row_inputs)
         raise _Reached
 
-    monkeypatch.setattr(runner, "_compute_row", reached)
-    with pytest.raises(runner.U2RunError, match="changed after"):
+    monkeypatch.setattr(runner, "_compute_row", compute_row)
+    with pytest.raises(_Reached):
         runner.run_track_u2(
             inputs,
             params,
@@ -1748,6 +1752,14 @@ def test_frames_changed_after_the_check_reach_no_row(
     assert fired == [True]
     assert (
         cohort.input_frames_sha256(inputs) != evidence["input_frames_sha256"]
+    )
+    (used,) = seen
+    assert used is not inputs
+    assert cohort.input_frames_sha256(used) == evidence["input_frames_sha256"]
+    genuine = frozen_load["inputs"].family_income[2019]
+    pd.testing.assert_series_equal(
+        used.family_income[2019]["total_family_income"],
+        genuine["total_family_income"].reset_index(drop=True),
     )
 
 
@@ -1954,9 +1966,9 @@ def test_a_string_cell_that_compares_as_another_refuses(frozen_load, evidence):
     history.iat[0, column] = _ComparesAs(text, "separated")
     changed = dataclasses.replace(rechecked, marriage_history=history)
     object.__setattr__(changed, "loader_seal", rechecked.loader_seal)
-    with pytest.raises(cohort.U2CohortError, match="exactly a str"):
+    with pytest.raises(cohort.U2CohortError, match="exact str"):
         cohort.input_frames_sha256(changed)
-    with pytest.raises(runner.U2RunError, match="exactly a str"):
+    with pytest.raises(runner.U2RunError, match="exact str"):
         _registered_check(
             changed, frozen_load, preregistration_evidence=evidence
         )
@@ -1986,7 +1998,7 @@ def test_no_string_cell_but_an_exact_str_is_digested(frozen_load, data):
         rechecked,
         **{name: frame if wave is None else {**frames, wave: frame}},
     )
-    with pytest.raises(cohort.U2CohortError, match="exactly a str"):
+    with pytest.raises(cohort.U2CohortError, match="exact str"):
         cohort.input_frames_sha256(changed)
 
 
@@ -2088,3 +2100,543 @@ def test_a_registered_run_computes_with_a_fresh_role_context(
     (used,) = seen
     assert used is not caller
     assert dict(used.rules) == dict(sources.RoleContext.from_registry().rules)
+
+
+def test_the_inherited_readers_transforms_meet_the_type_rules(
+    u2_inputs, monkeypatch
+):
+    """The loader reads marriage histories and observed earnings through
+    U1's readers, which the other loader tests patch to return invented
+    frames.  Here their own transforms run on INVENTED raw columns --
+    ``marriage._build`` on raw MH codes, and ``family_earnings_panel``
+    with the demographic panel and labor reader stubbed -- and the frames
+    they build pass the digest's type rules (round 3 verification)."""
+
+    import dataclasses
+
+    codes = {
+        "MH2": 700,  # INVENTED 1968 family numbers and person numbers
+        "MH3": 1,
+        "MH4": min(marriage._SEX),
+        "MH5": 98,
+        "MH6": 1950,
+        "MH7": 701,
+        "MH8": 2,
+        "MH9": 1,
+        "MH10": 6,
+        "MH11": 1972,
+        "MH12": min(marriage.HOW_ENDED),
+        "MH13": 99,
+        "MH14": 9999,
+        "MH15": 99,
+        "MH16": 9999,
+        "MH17": 2021,
+        "MH18": 1,
+        "MH19": min(marriage.LAST_KNOWN_STATUS),
+        "MH20": 1,
+    }
+    raw = pd.DataFrame([codes, {**codes, "MH3": 2, "MH7": 0, "MH8": 0}])
+    history = marriage._build(raw)
+
+    waves = (2013, 2015)
+    head, spouse = family._relationship_codes(waves[0])
+    demo = pd.DataFrame(
+        {
+            "person_id": [700001, 700002] * len(waves),
+            "period": [wave for wave in waves for _ in range(2)],
+            "interview": [1001, 1001, 2001, 2001],
+            "relationship": [head[0], spouse[0]] * len(waves),
+            "age": [63, 61, 65, 63],
+            "weight": [1000.0, 1000.0, 1010.0, 1010.0],
+        }
+    )
+    labor = pd.DataFrame(
+        {
+            "interview": [1001, 2001],
+            "head_labor": [30_000, 31_000],
+            "spouse_labor": [20_000, 0],
+            "head_acc": [0, 1],
+            "spouse_acc": [0, 0],
+        }
+    )
+    monkeypatch.setattr(
+        panels, "demographic_panel", lambda *, data_dir=None, max_period: demo
+    )
+    monkeypatch.setattr(
+        family,
+        "read_family_labor",
+        lambda wave, data_dir=None: labor[
+            labor["interview"] // 1000 == waves.index(wave) + 1
+        ],
+    )
+    earnings = family.family_earnings_panel(waves=waves)
+    assert set(earnings["role"]) == {"head", "spouse"}
+    cohort.input_frames_sha256(
+        dataclasses.replace(
+            u2_inputs, marriage_history=history, observed_earnings=earnings
+        )
+    )
+
+
+# ---------------------------------------------------------------------------
+# Round 3, third pass: check, then use, for the frames.  A second adversarial
+# round (three blind lanes) found that exact-type rules on pandas objects
+# cannot close the class: an object in ``attrs`` runs code whenever pandas
+# copies the frame, and an ExtensionArray subclass keeps the exact dtype
+# and CSV text while the computation reads other values.  A registered run
+# now computes only on frames parsed from the text the digest hashes, and
+# records provenance from the bound record.  INVENTED DATA.
+# ---------------------------------------------------------------------------
+class _Hook:
+    """INVENTED: runs ``act`` whenever pandas deep-copies a frame's attrs."""
+
+    def __init__(self, act):
+        self.act = act
+
+    def __deepcopy__(self, memo):
+        self.act()
+        return "inert"
+
+
+def _row_inputs(frozen_load, evidence, monkeypatch, inputs, **kwargs):
+    """The inputs the first registered row receives (the row is stopped)."""
+
+    seen = []
+
+    def compute_row(row, row_inputs, *args, **kw):
+        seen.append(row_inputs)
+        raise _Reached
+
+    monkeypatch.setattr(runner, "_compute_row", compute_row)
+    with pytest.raises(_Reached):
+        runner.run_track_u2(
+            inputs,
+            parameters.committed_u2_parameters(),
+            data_provenance=ap.REGISTERED_REAL,
+            role_context=sources.RoleContext.from_registry(),
+            registration_pointer=POINTER,
+            preregistration_evidence_sha256=frozen_load["sha256"],
+            preregistration_evidence=evidence,
+            **kwargs,
+        )
+    (row_inputs,) = seen
+    return row_inputs
+
+
+def test_an_attrs_object_on_an_input_frame_refuses(frozen_load, evidence):
+    """The verification's case: hooks in ``attrs`` that restore the frames
+    before each digest and alter them after.  Any attrs entry refuses,
+    before pandas copies anything."""
+
+    import dataclasses
+
+    rechecked = frozen_load["inputs"]
+    anchors = {w: f.copy() for w, f in rechecked.anchors.items()}
+    fired = []
+    anchors[2013].attrs["note"] = _Hook(lambda: fired.append(True))
+    hooked = dataclasses.replace(rechecked, anchors=anchors)
+    object.__setattr__(hooked, "loader_seal", rechecked.loader_seal)
+    with pytest.raises(cohort.U2CohortError, match="attrs"):
+        cohort.input_frames_sha256(hooked)
+    with pytest.raises(runner.U2RunError, match="attrs"):
+        _registered_check(
+            hooked, frozen_load, preregistration_evidence=evidence
+        )
+
+
+class _SwapSexes(pd.arrays.StringArray):
+    """INVENTED: a StringArray that keeps its text (so the digest) but
+    reads male as female and female as male on scalar access."""
+
+    def __getitem__(self, key):
+        out = super().__getitem__(key)
+        swap = {"male": "female", "female": "male"}
+        return swap.get(out, out) if isinstance(out, str) else out
+
+
+class _ShiftOnIteration(pd.arrays.IntegerArray):
+    """INVENTED: an IntegerArray whose iteration adds 5."""
+
+    def __iter__(self):
+        for value in super().__iter__():
+            yield value if value is pd.NA else value + _INVENTED_OFFSET
+
+
+def _rigged_copy(rechecked):
+    """The frozen load with two columns in place on rigged array classes
+    (persons.sex, marriage_history.birth_year) and the loader's seal kept:
+    the digest is unchanged."""
+
+    import dataclasses
+
+    persons = rechecked.persons.copy()
+    history = rechecked.marriage_history.copy()
+    sex = persons["sex"].astype("string").array
+    persons["sex"] = pd.Series(
+        _SwapSexes(sex._ndarray.copy()), index=persons.index
+    )
+    years = history["birth_year"].array
+    history["birth_year"] = pd.Series(
+        _ShiftOnIteration(years._data.copy(), years._mask.copy()),
+        index=history.index,
+    )
+    rigged = dataclasses.replace(
+        rechecked, persons=persons, marriage_history=history
+    )
+    object.__setattr__(rigged, "loader_seal", rechecked.loader_seal)
+    return rigged
+
+
+def test_rows_never_read_the_callers_arrays(
+    frozen_load, evidence, monkeypatch
+):
+    """Rigged array classes behind exact dtypes keep the digest, but the
+    rows receive the private snapshot: exact base arrays holding the
+    frozen values, never the caller's objects."""
+
+    rechecked = frozen_load["inputs"]
+    rigged = _rigged_copy(rechecked)
+    assert type(rigged.persons["sex"].array) is _SwapSexes
+    used = _row_inputs(frozen_load, evidence, monkeypatch, rigged)
+    assert used is not rigged
+    assert cohort.input_frames_sha256(used) == evidence["input_frames_sha256"]
+    sex = used.persons["sex"]
+    assert type(sex.array) is not _SwapSexes
+    assert list(sex) == list(rechecked.persons["sex"])
+    years = used.marriage_history["birth_year"]
+    assert type(years.array) is pd.arrays.IntegerArray
+    assert list(years) == list(rechecked.marriage_history["birth_year"])
+
+
+def test_the_snapshot_records_the_bound_records_provenance(
+    frozen_load, evidence, monkeypatch
+):
+    """The rows' provenance comes from the bound record and the committed
+    pins: the caller's in-place edits to its own provenance (registries,
+    data directory) reach no row, and no data directory is recorded."""
+
+    import dataclasses
+
+    rechecked = frozen_load["inputs"]
+    edited = dataclasses.replace(
+        rechecked,
+        provenance={
+            **rechecked.provenance,
+            "registries": {"kind": "invented"},
+            "psid_data_dir": "/invented/elsewhere",
+        },
+    )
+    object.__setattr__(edited, "loader_seal", rechecked.loader_seal)
+    used = _row_inputs(frozen_load, evidence, monkeypatch, edited)
+    recorded = cohort._input_provenance(used)
+    assert recorded["psid_files_sha256"] == evidence["psid_files_sha256"]
+    assert recorded["psid_files_bundle_sha256"] == (
+        evidence["psid_files_bundle_sha256"]
+    )
+    assert recorded[cohort.EVIDENCE_KEY] == frozen_load["sha256"]
+    assert recorded["registries"] == (
+        sources.RegistrySet.committed().provenance()
+    )
+    assert recorded["psid_data_dir"] is None
+
+
+@pytest.mark.parametrize(
+    "where", ["psid_files_sha256", "cited_sources_sha256"]
+)
+def test_rigged_recorded_hashes_refuse(frozen_load, evidence, where):
+    """The inputs' recorded hash maps must be plain dicts of exact str: a
+    str subclass could compare equal to the frozen hashes."""
+
+    import dataclasses
+
+    rechecked = frozen_load["inputs"]
+    recorded = dict(rechecked.provenance[where])
+    rigged = {key: _RiggedText("e" * 64) for key in recorded} or {
+        "PSID/invented.sps": _RiggedText("e" * 64)
+    }
+    provenance = {**rechecked.provenance, where: rigged}
+    seal = dict(rechecked.loader_seal)
+    if where == "psid_files_sha256":
+        # The bundle is rigged too, in the provenance and the seal, as the
+        # verification's attack did, so only the exact-type rule refuses.
+        bundle = _RiggedText(loader.files_bundle_sha256(rigged))
+        provenance["psid_files_bundle_sha256"] = bundle
+        seal["psid_files_bundle_sha256"] = bundle
+    edited = dataclasses.replace(rechecked, provenance=provenance)
+    object.__setattr__(edited, "loader_seal", MappingProxyType(seal))
+    with pytest.raises(runner.U2RunError, match="plain dict of exact"):
+        _registered_check(
+            edited, frozen_load, preregistration_evidence=evidence
+        )
+
+
+def test_a_registered_run_takes_no_source_gate(frozen_load, evidence):
+    gate = sources.SourceGate(
+        sources.REGISTRY, sources.RegistrySet.committed()
+    )
+    gate.would_refuse["roles:2015.relationship.20"] = ["INVENTED"]
+    with pytest.raises(runner.U2RunError, match="no source gate"):
+        runner.run_track_u2(
+            frozen_load["inputs"],
+            parameters.committed_u2_parameters(),
+            data_provenance=ap.REGISTERED_REAL,
+            role_context=sources.RoleContext.from_registry(),
+            registration_pointer=POINTER,
+            source_gate=gate,
+            preregistration_evidence_sha256=frozen_load["sha256"],
+            preregistration_evidence=evidence,
+        )
+
+
+def test_a_registration_pointer_must_be_an_exact_str(frozen_load, evidence):
+    pointer = type("_Pointer", (str,), {})(POINTER)
+    with pytest.raises(runner.U2RunError, match="issue #42"):
+        runner.check_inputs(
+            frozen_load["inputs"],
+            ap.REGISTERED_REAL,
+            pointer,
+            sources.RoleContext.from_registry(),
+            preregistration_evidence_sha256=frozen_load["sha256"],
+            preregistration_evidence=evidence,
+        )
+
+
+def test_role_rules_are_final_and_bound_by_text():
+    """RoleRule is final, and a RoleContext keeps the verified committed
+    (or declared) rule objects, never the caller's: a rule whose field is
+    a rigged str with the committed text is replaced by the committed
+    one."""
+
+    import dataclasses
+
+    with pytest.raises(TypeError, match="final"):
+        type("_Rule", (sources.RoleRule,), {})
+    committed = dict(sources.RoleContext.from_registry().rules)
+    rigged = {
+        key: dataclasses.replace(
+            rule,
+            income_role=(
+                None
+                if rule.income_role is None
+                else _RiggedText(rule.income_role)
+            ),
+        )
+        for key, rule in committed.items()
+    }
+    context = sources.RoleContext(sources.REGISTRY, rigged)
+    assert all(
+        type(rule.income_role) in (str, type(None))
+        for rule in context.rules.values()
+    )
+    assert sources.role_rules_text(context.rules) == (
+        sources.role_rules_text(committed)
+    )
+
+
+def test_the_snapshot_rebuilds_the_loader_and_generator_frames_exactly(
+    loaded, u2_inputs
+):
+    """The converse, and the invariant a legitimate registered run relies
+    on: the loader's frames and the invented generator's rebuild from their
+    digested text value for value, dtype for dtype, with the same digest."""
+
+    for inputs in (loaded["inputs"], u2_inputs):
+        rebuilt, digest = cohort.rebuilt_input_frames(inputs)
+        assert digest == cohort.input_frames_sha256(inputs)
+        for field, wave, _name, frame in cohort._digest_frames(inputs):
+            copy = rebuilt[field] if wave is None else rebuilt[field][wave]
+            pd.testing.assert_frame_equal(
+                copy, frame.reset_index(drop=True), check_exact=True
+            )
+
+
+_TEXT = st.text(
+    alphabet=st.characters(
+        blacklist_categories=("Cs",), blacklist_characters="\r"
+    ),
+    min_size=1,
+    max_size=12,
+)
+
+
+@st.composite
+def _frames(draw):
+    """INVENTED frames over every allowed dtype, with missing values."""
+
+    n = draw(st.integers(0, 6))
+    columns = {}
+    kinds = draw(
+        st.lists(
+            st.sampled_from(
+                ("int64", "float64", "bool", "Int64", "str", "string")
+            ),
+            min_size=1,
+            max_size=6,
+        )
+    )
+    for index, kind in enumerate(kinds):
+        name = f"c{index}"
+        if kind == "int64":
+            values = draw(
+                st.lists(st.integers(-(2**62), 2**62), min_size=n, max_size=n)
+            )
+        elif kind == "float64":
+            values = draw(
+                st.lists(
+                    st.floats(allow_nan=True, allow_infinity=True, width=64),
+                    min_size=n,
+                    max_size=n,
+                )
+            )
+        elif kind == "bool":
+            values = draw(st.lists(st.booleans(), min_size=n, max_size=n))
+        elif kind == "Int64":
+            values = draw(
+                st.lists(
+                    st.none() | st.integers(-(2**62), 2**62),
+                    min_size=n,
+                    max_size=n,
+                )
+            )
+        else:
+            values = draw(st.lists(st.none() | _TEXT, min_size=n, max_size=n))
+        columns[name] = (
+            pd.array(values, dtype=kind)
+            if kind != "float64"
+            else np.array(values, dtype="float64")
+        )
+    return pd.DataFrame(columns)
+
+
+@settings(max_examples=300, deadline=None)
+@given(frame=_frames())
+def test_no_frame_rebuilds_to_other_values_under_the_same_text(frame):
+    """Invariant (round 3, third pass): for every frame over the allowed
+    dtypes, rebuilding from the digested text either refuses or gives back
+    the same values and dtypes -- never other values under the same text,
+    which a registered run would compute on silently."""
+
+    try:
+        text = cohort._frame_text("invented", frame)
+    except cohort.U2CohortError:
+        return
+    try:
+        rebuilt = cohort._rebuild_frame("invented", text)
+    except cohort.U2CohortError:
+        return
+    pd.testing.assert_frame_equal(rebuilt, frame, check_exact=True)
+
+
+@pytest.mark.parametrize(
+    "change, message",
+    [
+        (lambda f: f.assign(sex=f["sex"].astype("category")), "dtype"),
+        (lambda f: f.assign(extra=np.arange(len(f), dtype="int32")), "dtype"),
+        (
+            lambda f: f.assign(
+                sex=pd.Series(
+                    list(f["sex"].iloc[:-1]) + [""], dtype=f["sex"].dtype
+                )
+            ),
+            "nonempty",
+        ),
+        (
+            lambda f: f.assign(
+                sex=pd.Series(list(f["sex"].iloc[:-1]) + [1.5], dtype=object)
+            ),
+            "float",
+        ),
+        (
+            lambda f: f.assign(
+                sex=pd.Series(
+                    list(f["sex"].iloc[:-1])
+                    + [type("_S", (str,), {})("male")],
+                    dtype=object,
+                )
+            ),
+            "exact str",
+        ),
+        (
+            lambda f: f.set_axis(["person_id", "person_id"], axis=1),
+            "column labels",
+        ),
+        (
+            lambda f: f.set_axis(
+                type("_Index", (pd.Index,), {})._simple_new(
+                    f.columns._values, name=None
+                ),
+                axis=1,
+            ),
+            "column labels",
+        ),
+        (
+            lambda f: f.assign(
+                sex=f["sex"].astype(type("_Dtype", (pd.StringDtype,), {})())
+            ),
+            "dtype",
+        ),
+    ],
+    ids=[
+        "category",
+        "int32",
+        "empty-string",
+        "object-float",
+        "object-str-subclass",
+        "duplicate-labels",
+        "index-subclass",
+        "dtype-subclass",
+    ],
+)
+def test_the_type_rules_refuse_each_case(u2_inputs, change, message):
+    """Each clause of the digest's type rules, including those the
+    verification's mutants showed untested (index, dtype and int-subclass
+    cases, duplicate labels, the object-column branch)."""
+
+    import dataclasses
+
+    try:
+        persons = change(u2_inputs.persons.copy())
+    except (TypeError, ValueError):
+        pytest.skip("pandas does not build this frame")
+    with pytest.raises(cohort.U2CohortError, match=message):
+        cohort.input_frames_sha256(
+            dataclasses.replace(u2_inputs, persons=persons)
+        )
+
+
+@pytest.mark.parametrize("key", ["int-subclass", "bool"])
+def test_a_wave_key_must_be_exactly_int(u2_inputs, key):
+    import dataclasses
+
+    wave_type = type("_Wave", (int,), {}) if key == "int-subclass" else bool
+    frames = u2_inputs.family_income
+    first = sorted(frames)[0]
+    income = {
+        wave_type(first): frames[first],
+        **{wave: frame for wave, frame in frames.items() if wave != first},
+    }
+    with pytest.raises(cohort.U2CohortError, match="int"):
+        cohort.input_frames_sha256(
+            dataclasses.replace(u2_inputs, family_income=income)
+        )
+
+
+def test_the_step_4_evidence_refuses_frames_that_do_not_rebuild(loaded):
+    """Fail early: a frame whose text does not parse back to itself (here
+    an INVENTED column with an empty label, which the CSV reader renames)
+    passes the type rules but refuses at the evidence writer, before
+    registration."""
+
+    import dataclasses
+
+    rechecked = loaded["inputs"]
+    persons = rechecked.persons.assign(**{"": 0})
+    changed = dataclasses.replace(rechecked, persons=persons)
+    cohort.input_frames_sha256(changed)
+    seal = {
+        **dict(rechecked.loader_seal),
+        "input_frames_sha256": cohort.input_frames_sha256(changed),
+    }
+    object.__setattr__(changed, "loader_seal", MappingProxyType(seal))
+    with pytest.raises(loader.U2LoaderRefusal, match="rebuild"):
+        loader.preregistration_evidence(changed)

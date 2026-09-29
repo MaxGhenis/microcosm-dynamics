@@ -87,6 +87,7 @@ from __future__ import annotations
 
 import dataclasses
 import hashlib
+import io
 import json
 import math
 import sys
@@ -137,6 +138,8 @@ __all__ = [
     "observation_plan",
     "pending_decisions",
     "plan_cells",
+    "rebuilt_input_frames",
+    "registered_snapshot",
     "structural_summary",
 ]
 
@@ -440,25 +443,21 @@ class U2Inputs:
         identity.check_target(self.target_id, "U2Inputs")
 
 
-#: The pandas extension dtypes an input frame may hold, by exact type
-#: (review round 3).  Each stores machine values, or strings whose cells
-#: :func:`_check_frame_types` holds to exact ``str``, so the digest's text
-#: fixes what the computation reads; any other dtype (categorical, a
-#: third-party extension) refuses.
-_EXTENSION_DTYPES: tuple[type, ...] = (
-    pd.StringDtype,
-    pd.BooleanDtype,
-    pd.Int8Dtype,
-    pd.Int16Dtype,
-    pd.Int32Dtype,
-    pd.Int64Dtype,
-    pd.UInt8Dtype,
-    pd.UInt16Dtype,
-    pd.UInt32Dtype,
-    pd.UInt64Dtype,
-    pd.Float32Dtype,
-    pd.Float64Dtype,
-)
+#: The dtypes an input frame may hold, by the name the digest writes, and
+#: the dtype a snapshot parses each column's text with (review round 3):
+#: the dtypes the U2 loader and U1's marriage and earnings readers build.
+#: Each stores machine values or strings, and each rebuilds exactly from
+#: the CSV text the digest hashes (:func:`registered_snapshot`); any other
+#: dtype refuses at the digest, so at every load, before any registration.
+_FRAME_DTYPES: dict[str, Any] = {
+    "int64": "int64",
+    "float64": "float64",
+    "bool": "bool",
+    "object": object,
+    "Int64": "Int64",
+    "str": "str",
+    "string": "string",
+}
 
 
 def _missing(value: Any) -> bool:
@@ -469,18 +468,37 @@ def _missing(value: Any) -> bool:
     )
 
 
+def _allowed_dtype(dtype: Any) -> bool:
+    if isinstance(dtype, np.dtype):
+        return dtype.name in ("int64", "float64", "bool", "object")
+    return type(dtype) in (pd.Int64Dtype, pd.StringDtype) and (
+        str(dtype) in _FRAME_DTYPES
+    )
+
+
 def _check_frame_types(name: str, frame: pd.DataFrame) -> None:
     """Refuse a frame whose digest would not fix what a run reads.
 
     The digest hashes the column labels' text, the dtype names and the
     CSV text (:func:`_frame_digest`).  A subclass can print as one value
-    and compare, hash or index as another, so (review round 3) the labels
-    must be distinct exact ``str``; each dtype a NumPy dtype or one of
-    :data:`_EXTENSION_DTYPES`; and every cell of an object or string
-    column an exact ``str`` or missing.  The U2 loader and the invented
-    generator build only such frames.
+    and compare, hash or index as another, and an object in ``attrs``
+    runs code whenever pandas copies the frame, so (review round 3):
+    ``attrs`` must be empty (checked first: reading it runs nothing); the
+    labels distinct exact ``str`` in an exact ``pd.Index``; each dtype one
+    of :data:`_FRAME_DTYPES`, by exact type; and every cell of an object
+    or string column a nonempty exact ``str`` or missing (the CSV text
+    writes an empty string and a missing value alike).  The U2 loader,
+    U1's marriage and earnings readers and the invented generator build
+    only such frames.  A registered run further computes only on frames
+    rebuilt from the digested text (:func:`registered_snapshot`).
     """
 
+    if frame.attrs:
+        raise U2CohortError(
+            f"input frame {name} carries attrs {sorted(map(str, frame.attrs))}"
+            ": pandas copies attrs into every frame it derives, so an object "
+            "there runs code during the digest (review round 3)"
+        )
     columns = frame.columns
     if (
         type(columns) is not pd.Index
@@ -493,40 +511,50 @@ def _check_frame_types(name: str, frame: pd.DataFrame) -> None:
             "index another's data (review round 3)"
         )
     for position, dtype in enumerate(frame.dtypes):
-        if isinstance(dtype, np.dtype):
-            if dtype.kind != "O":
-                continue
-        elif type(dtype) not in _EXTENSION_DTYPES:
+        if not _allowed_dtype(dtype):
             raise U2CohortError(
                 f"input frame {name} column {columns[position]!r} has dtype "
                 f"{dtype!r} ({type(dtype).__qualname__}); an input frame "
-                "holds NumPy dtypes and pandas' own nullable and string "
-                "dtypes only (review round 3)"
+                f"holds only the dtypes {sorted(_FRAME_DTYPES)} (review "
+                "round 3)"
             )
-        elif type(dtype) is not pd.StringDtype:
+        textual = isinstance(dtype, np.dtype) and dtype.kind == "O"
+        if not textual and type(dtype) is not pd.StringDtype:
             continue
         for value in frame.iloc[:, position].tolist():
-            if type(value) is not str and not _missing(value):
+            if (type(value) is not str or value == "") and not _missing(value):
                 raise U2CohortError(
                     f"input frame {name} column {columns[position]!r} holds "
-                    f"a {type(value).__qualname__} cell; every cell of an "
-                    "object or string column must be exactly a str or "
-                    "missing, since a subclass can print as one value and "
-                    "compare as another (review round 3)"
+                    f"a {type(value).__qualname__} cell {value!r:.40}; every "
+                    "cell of an object or string column must be a nonempty "
+                    "exact str or missing, since a subclass can print as one "
+                    "value and compare as another (review round 3)"
                 )
 
 
-def _frame_digest(digest: Any, name: str, frame: pd.DataFrame) -> None:
+def _frame_text(name: str, frame: Any) -> tuple[str, str, str]:
+    """What the digest hashes of one frame: its labels, its dtype names
+    and its CSV text, each written once."""
+
     if type(frame) is not pd.DataFrame:
         raise U2CohortError(
             f"input frame {name} is a {type(frame).__name__}, not a "
             "pandas.DataFrame: a frame's digest must come from its data"
         )
     _check_frame_types(name, frame)
+    return (
+        json.dumps([str(c) for c in frame.columns]),
+        json.dumps([str(t) for t in frame.dtypes]),
+        frame.to_csv(index=False, lineterminator="\n"),
+    )
+
+
+def _frame_digest(digest: Any, name: str, frame: Any) -> tuple[str, str, str]:
+    text = _frame_text(name, frame)
     digest.update(f"{name}\n".encode())
-    digest.update(json.dumps([str(c) for c in frame.columns]).encode())
-    digest.update(json.dumps([str(t) for t in frame.dtypes]).encode())
-    digest.update(frame.to_csv(index=False, lineterminator="\n").encode())
+    for part in text:
+        digest.update(part.encode())
+    return text
 
 
 def _wave_frames(frames: Any, name: str) -> dict[int, pd.DataFrame]:
@@ -554,6 +582,42 @@ def _wave_frames(frames: Any, name: str) -> dict[int, pd.DataFrame]:
     return frames
 
 
+_WAVE_FIELDS: tuple[tuple[str, str], ...] = (
+    ("family_income", "income"),
+    ("family_wealth", "wealth"),
+    ("employer_dc", "employer_dc"),
+)
+_SINGLE_FIELDS: tuple[str, ...] = (
+    "design",
+    "persons",
+    "marriage_history",
+    "observed_earnings",
+)
+
+
+def _digest_frames(
+    inputs: U2Inputs,
+) -> Any:
+    """``(field, wave or None, digest name, frame)`` in digest order."""
+
+    anchors = _wave_frames(inputs.anchors, "anchors")
+    containers = [
+        (
+            field_name,
+            label,
+            _wave_frames(getattr(inputs, field_name), field_name),
+        )
+        for field_name, label in _WAVE_FIELDS
+    ]
+    for wave in sorted(anchors):
+        yield "anchors", wave, f"anchor_{wave}", anchors[wave]
+    for field_name in _SINGLE_FIELDS:
+        yield field_name, None, field_name, getattr(inputs, field_name)
+    for field_name, label, frames in containers:
+        for wave in sorted(frames):
+            yield field_name, wave, f"{label}_{wave}", frames[wave]
+
+
 def input_frames_sha256(inputs: U2Inputs) -> str:
     """SHA-256 of every U2 input frame and the target identity.
 
@@ -563,22 +627,109 @@ def input_frames_sha256(inputs: U2Inputs) -> str:
     exact types (:func:`_check_frame_types`).
     """
 
-    anchors = _wave_frames(inputs.anchors, "anchors")
-    containers = (
-        ("income", _wave_frames(inputs.family_income, "family_income")),
-        ("wealth", _wave_frames(inputs.family_wealth, "family_wealth")),
-        ("employer_dc", _wave_frames(inputs.employer_dc, "employer_dc")),
-    )
     digest = hashlib.sha256()
     digest.update(f"target:{inputs.target_id}\n".encode())
-    for wave in sorted(anchors):
-        _frame_digest(digest, f"anchor_{wave}", anchors[wave])
-    for name in ("design", "persons", "marriage_history", "observed_earnings"):
-        _frame_digest(digest, name, getattr(inputs, name))
-    for label, frames in containers:
-        for wave in sorted(frames):
-            _frame_digest(digest, f"{label}_{wave}", frames[wave])
+    for _field, _wave, name, frame in _digest_frames(inputs):
+        _frame_digest(digest, name, frame)
     return digest.hexdigest()
+
+
+def _rebuild_frame(name: str, text: tuple[str, str, str]) -> pd.DataFrame:
+    """The frame parsed from ``text`` (labels, dtype names, CSV), which
+    must write ``text`` again exactly."""
+
+    labels_text, dtypes_text, csv_text = text
+    labels, dtypes = json.loads(labels_text), json.loads(dtypes_text)
+    frame = pd.read_csv(
+        io.StringIO(csv_text),
+        dtype={
+            label: _FRAME_DTYPES[dtype]
+            for label, dtype in zip(labels, dtypes, strict=True)
+        },
+        keep_default_na=False,
+        na_values=[""],
+    )
+    if _frame_text(name, frame) != text:
+        raise U2CohortError(
+            f"input frame {name} does not rebuild from the text its digest "
+            "hashes (labels, dtypes and CSV): a registered run computes "
+            "only on frames that do (review round 3)"
+        )
+    return frame
+
+
+def rebuilt_input_frames(inputs: U2Inputs) -> tuple[dict[str, Any], str]:
+    """Every input frame parsed from the text its digest hashes, and that
+    digest: the frame fields of :class:`U2Inputs` (plain dicts keyed by
+    int for the wave fields).  Each frame's text is written once, hashed,
+    and parsed back (:func:`_rebuild_frame`), so the frames returned are
+    exactly what the digest pins (review round 3)."""
+
+    digest = hashlib.sha256()
+    digest.update(f"target:{identity.TARGET_ID}\n".encode())
+    rebuilt: dict[str, Any] = {
+        "anchors": {},
+        **{field_name: {} for field_name, _ in _WAVE_FIELDS},
+    }
+    for field_name, wave, name, frame in _digest_frames(inputs):
+        frame = _rebuild_frame(name, _frame_digest(digest, name, frame))
+        if wave is None:
+            rebuilt[field_name] = frame
+        else:
+            rebuilt[field_name][int(wave)] = frame
+    return rebuilt, digest.hexdigest()
+
+
+def registered_snapshot(
+    inputs: U2Inputs,
+    evidence: Mapping[str, Any],
+    evidence_sha256: str,
+) -> tuple[U2Inputs, str]:
+    """The private inputs a registered run computes on, and their digest.
+
+    Check, then use (review round 3).  Each input frame's text is written
+    once as the digest writes it and hashed, and a new frame is parsed
+    from that same text (:func:`_rebuild_frame`).  So a run on the
+    snapshot reads exactly what the digest pins, whatever the caller's
+    objects do afterwards or in other code paths (an array or index
+    subclass, an ``attrs`` hook, an in-place edit).  The caller compares
+    the returned digest with the bound record's frozen one.
+
+    ``evidence`` is the bound, normalized pre-registration record and
+    ``evidence_sha256`` its hash.  The snapshot's provenance comes from
+    them and the committed registry pins, never from the caller's inputs:
+    its PSID file hashes and bundle and cited-source hashes are the
+    record's, and it records no data directory.  It is sealed as the
+    loader seals, so each build's seal check holds.
+    """
+
+    rebuilt, frames_sha256 = rebuilt_input_frames(inputs)
+    files = {str(k): str(v) for k, v in evidence["psid_files_sha256"].items()}
+    provenance = {
+        "kind": PSID_FILES,
+        "psid_files_sha256": files,
+        "psid_files_bundle_sha256": str(evidence["psid_files_bundle_sha256"]),
+        "registries": sources.RegistrySet.committed().provenance(),
+        "cited_sources_sha256": {
+            str(k): str(v) for k, v in evidence["cited_sources_sha256"].items()
+        },
+        EVIDENCE_KEY: str(evidence_sha256),
+    }
+    snapshot = U2Inputs(provenance=provenance, **rebuilt)
+    object.__setattr__(
+        snapshot,
+        "loader_seal",
+        MappingProxyType(
+            {
+                "input_frames_sha256": frames_sha256,
+                "psid_files_bundle_sha256": provenance[
+                    "psid_files_bundle_sha256"
+                ],
+                EVIDENCE_KEY: provenance[EVIDENCE_KEY],
+            }
+        ),
+    )
+    return snapshot, frames_sha256
 
 
 _INVENTED_MODULE = "populace_dynamics.uniform_cut_track_u2.invented"

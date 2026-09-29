@@ -627,6 +627,8 @@ class RoleRule:
     administrative_birth_support: bool
     refusal: str | None = None
 
+    __init_subclass__ = classmethod(_final)
+
     def as_dict(self) -> dict[str, Any]:
         return {
             "wave": self.wave,
@@ -657,6 +659,34 @@ _CODE_88_REFUSAL = (
     "any income slot, annuity or marital rule remains TO VERIFY and none "
     "is declared, so an observation whose family holds one refuses"
 )
+
+
+def role_rules_text(rules: Mapping[Any, Any]) -> str:
+    """Role rules as canonical JSON text, each rule exactly a RoleRule.
+
+    Compared as text, a rule cannot pass by a field whose ``__eq__`` is
+    rigged (review round 3): the JSON encoder writes a string subclass's
+    own characters, never calls its comparison.
+    """
+
+    out = []
+    for key, rule in rules.items():
+        if type(rule) is not RoleRule:
+            raise U2SourceRefusal(
+                f"role rule {key!r} is a {type(rule).__qualname__}, not "
+                "exactly a RoleRule"
+            )
+        out.append([list(key), rule.as_dict()])
+    try:
+        return json.dumps(
+            sorted(out, key=lambda item: json.dumps(item[0])),
+            sort_keys=True,
+            allow_nan=False,
+        )
+    except (TypeError, ValueError) as error:
+        raise U2SourceRefusal(
+            f"the role rules are not plain data: {error}"
+        ) from error
 
 
 def declared_role_rules() -> dict[tuple[int, int], RoleRule]:
@@ -791,11 +821,14 @@ class RoleContext:
             else declared_role_rules()
         )
         rules = dict(self.rules)
-        if rules != dict(expected):
+        if role_rules_text(rules) != role_rules_text(expected):
             differ = sorted(
                 key
                 for key in set(rules) | set(expected)
-                if rules.get(key) != expected.get(key)
+                if key not in rules
+                or key not in expected
+                or role_rules_text({key: rules[key]})
+                != role_rules_text({key: expected[key]})
             )
             source = (
                 "the committed roles registry"
@@ -806,7 +839,10 @@ class RoleContext:
                 f"a {self.kind!r} role context holds rules other than "
                 f"{source}'s (first differing (wave, code): {differ[:3]})"
             )
-        object.__setattr__(self, "rules", MappingProxyType(rules))
+        # Hold the verified committed (or declared) rule objects, never the
+        # caller's: equal text, but only these are known to behave as
+        # RoleRules (review round 3).
+        object.__setattr__(self, "rules", MappingProxyType(dict(expected)))
 
     @classmethod
     def declared(cls) -> RoleContext:
