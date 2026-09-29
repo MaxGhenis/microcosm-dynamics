@@ -210,6 +210,22 @@ def test_dry_run_records_every_branch_and_refusal(dry_run):
         "ssi_subclass_under_the_pinned_label": "U2ParameterError",
         "invented_run_naming_an_evidence_hash": "U2RunError",
     }
+    round_3 = checks["round_3_refusals"]
+    assert {name: entry["error"] for name, entry in round_3.items()} == {
+        "registered_run_given_altered_row_definitions": "U2RunError",
+        "registered_run_given_the_registered_rows": "U2RunError",
+        "invented_run_naming_an_evidence_record": "U2RunError",
+    }
+    assert all(
+        "row_set" in round_3[name]["message"]
+        for name in (
+            "registered_run_given_altered_row_definitions",
+            "registered_run_given_the_registered_rows",
+        )
+    )
+    assert "binds no" in (
+        round_3["invented_run_naming_an_evidence_record"]["message"]
+    )
     for row_id, entry in checks["invariants"].items():
         for key, value in entry.items():
             if not key.startswith("n_"):
@@ -238,6 +254,7 @@ def test_dry_run_markdown_names_the_refusals(dry_run):
     assert "Loader preflight refuses" in text
     assert "Round-1 review refusals (invented;" in text
     assert "Round-2 review refusals (invented;" in text
+    assert "Round-3 review refusals (invented):" in text
     assert "routes from other data to the invented declared rules" in text
     assert "Named invented variants" in text
     for delta in rows.NAMED_DELTAS:
@@ -714,13 +731,15 @@ def test_the_registered_main_passes_the_evidence_to_the_loader(
 def test_the_registered_main_passes_the_bound_evidence_hash_to_the_run(
     registered, monkeypatch
 ):
-    """Review round 2, info 2: ``main`` hands the run the evidence hash
-    the preflight bound, and the run compares it with the loader's seal
+    """Review rounds 2 and 3: ``main`` hands the run the evidence hash the
+    preflight bound and the evidence record itself; the run compares the
+    hash with the loader's seal and the frames and files with the record
     (``test_u2_loader.py``)."""
 
     from populace_dynamics.uniform_cut_track_u2 import loader
 
     bound = "e" * 64
+    record = {"invented": True}
     params = object()
     inputs = object()
     calls = []
@@ -732,7 +751,7 @@ def test_the_registered_main_passes_the_bound_evidence_hash_to_the_run(
         registered,
         "preflight",
         lambda **kwargs: {
-            "evidence": {"invented": True},
+            "evidence": record,
             "params": params,
             "evidence_sha256": bound,
         },
@@ -760,6 +779,8 @@ def test_the_registered_main_passes_the_bound_evidence_hash_to_the_run(
     ((args, kwargs),) = calls
     assert args == (inputs, params)
     assert kwargs["preregistration_evidence_sha256"] == bound
+    assert kwargs["preregistration_evidence"] is record
+    assert "row_set" not in kwargs
 
 
 def test_registered_headline_choice_is_only_u0(registered):

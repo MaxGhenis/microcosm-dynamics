@@ -34,11 +34,12 @@ import os
 import pwd
 import sys
 from pathlib import Path
+from types import MappingProxyType
 
 import numpy as np
 import pandas as pd
 import pytest
-from hypothesis import given, settings
+from hypothesis import assume, given, settings
 from hypothesis import strategies as st
 
 from populace_dynamics.data import family, marriage, psid
@@ -48,6 +49,7 @@ from populace_dynamics.uniform_cut_track_u2 import (
     invented,
     loader,
     parameters,
+    rows,
     runner,
     sources,
 )
@@ -303,11 +305,12 @@ def test_stage_three_applies_the_registry_dc_route(
 
 
 def test_loaded_inputs_take_the_registered_path_only(
-    loaded, frozen_load, declared
+    loaded, frozen_load, evidence, declared
 ):
     """Sealed psid_files inputs: the registered guard accepts them only
     once the loader rechecked them against the frozen pre-registration
-    evidence (review round 1, finding 2); the declared role context
+    evidence (review round 1, finding 2) and they match the record the
+    registration binds (review round 3); the declared role context
     refuses them, and the committed roles registry refuses the build on
     the refused codes (2015 code 20 among them)."""
 
@@ -322,7 +325,11 @@ def test_loaded_inputs_take_the_registered_path_only(
         POINTER,
         registry,
         preregistration_evidence_sha256=frozen_load["sha256"],
-    ) == {cohort.EVIDENCE_KEY: frozen_load["sha256"]}
+        preregistration_evidence=evidence,
+    ) == {
+        cohort.EVIDENCE_KEY: frozen_load["sha256"],
+        "input_frames_sha256": evidence["input_frames_sha256"],
+    }
     with pytest.raises(runner.U2RunError, match="invented"):
         runner.check_inputs(inputs, ap.INVENTED, None, registry)
     with pytest.raises(cohort.U2CohortError, match="invented inputs"):
@@ -1133,7 +1140,7 @@ def test_a_mismatched_evidence_hash_refuses_before_any_computation(
 
 
 def test_a_registered_run_computes_with_the_fresh_pinned_read(
-    frozen_load, monkeypatch
+    frozen_load, evidence, monkeypatch
 ):
     """Review round 2: the check verifies the caller's bundle, and the
     run then computes with the fresh read of the pinned files, so an edit
@@ -1160,6 +1167,7 @@ def test_a_registered_run_computes_with_the_fresh_pinned_read(
             role_context=sources.RoleContext.from_registry(),
             registration_pointer=POINTER,
             preregistration_evidence_sha256=frozen_load["sha256"],
+            preregistration_evidence=evidence,
             progress=progress,
         )
     assert caller.thresholds.weighted_average[2020]["one_65_plus"] == 1.0
@@ -1172,4 +1180,545 @@ def test_a_registered_run_computes_with_the_fresh_pinned_read(
         parameters.parameters_content_sha256(
             parameters.committed_u2_parameters()
         )
+    )
+
+
+# ---------------------------------------------------------------------------
+# Review round 3, info 1: the seal is only the loader's own claim.  A seal
+# written in-process (``object.__setattr__`` on the frozen dataclass's
+# ``init=False`` field) over altered frames repeats that claim, so a
+# registered run compares the frames and PSID files with the evidence
+# record its registration binds.  Info 2: a registered run computes the
+# registered rows only and takes no ``row_set``.
+# INVENTED DATA - NOT A COMPARISON: the inputs are the staged invented
+# files read back by the loader, and every altered value is an invented
+# offset.
+# ---------------------------------------------------------------------------
+#: INVENTED: added to one cell, as the round-3 review's probe B2 did.
+_INVENTED_OFFSET = 5
+
+
+def _forge(rechecked: cohort.U2Inputs, **frames) -> cohort.U2Inputs:
+    """``rechecked`` with ``frames`` replaced under a forged seal.
+
+    The seal is written as the loader writes it, over the changed frames'
+    own digest, with the file bundle and the bound evidence hash kept; the
+    provenance is the loader's, unchanged.  The forgery is therefore
+    internally consistent, and ``cohort._input_provenance`` accepts it.
+    """
+
+    import dataclasses
+
+    forged = dataclasses.replace(rechecked, **frames)
+    seal = {
+        **dict(rechecked.loader_seal),
+        "input_frames_sha256": cohort.input_frames_sha256(forged),
+    }
+    object.__setattr__(forged, "loader_seal", MappingProxyType(seal))
+    return forged
+
+
+def _offset_cell(
+    frame: pd.DataFrame, column: str, row: int, offset: int
+) -> pd.DataFrame:
+    """A copy of ``frame`` with the INVENTED ``offset`` added to one cell
+    (a missing cell becomes the offset)."""
+
+    changed = frame.copy()
+    position = changed.columns.get_loc(column)
+    old = changed.iat[row, position]
+    changed.iat[row, position] = offset if pd.isna(old) else old + offset
+    return changed
+
+
+def _income_forgery(rechecked: cohort.U2Inputs) -> cohort.U2Inputs:
+    """The review's probe B2: +5 (invented) in one 2019 income cell."""
+
+    income = dict(rechecked.family_income)
+    income[2019] = _offset_cell(
+        income[2019], "total_family_income", 0, _INVENTED_OFFSET
+    )
+    return _forge(rechecked, family_income=income)
+
+
+def _registered_check(inputs, frozen_load, **evidence):
+    return runner.check_inputs(
+        inputs,
+        ap.REGISTERED_REAL,
+        POINTER,
+        sources.RoleContext.from_registry(),
+        preregistration_evidence_sha256=frozen_load["sha256"],
+        **evidence,
+    )
+
+
+def test_a_forged_seal_over_altered_frames_passes_only_the_seal_check(
+    frozen_load, evidence
+):
+    """Review round 3, info 1 (probe B2).  The forged seal and the
+    loader's provenance agree, so the provenance check accepts the altered
+    frames and the bound hash matches the seal.  Before this round the
+    registered check accepted them; given only the bound hash it now
+    refuses, since it must see the evidence record itself."""
+
+    forged = _income_forgery(frozen_load["inputs"])
+    assert cohort.input_frames_sha256(forged) != (
+        evidence["input_frames_sha256"]
+    )
+    provenance = cohort._input_provenance(forged)
+    assert provenance[cohort.EVIDENCE_KEY] == frozen_load["sha256"]
+    with pytest.raises(runner.U2RunError, match="evidence record"):
+        _registered_check(forged, frozen_load)
+
+
+def test_a_forged_seal_refuses_against_the_bound_evidence_record(
+    frozen_load, evidence
+):
+    forged = _income_forgery(frozen_load["inputs"])
+    with pytest.raises(runner.U2RunError, match="frame digest"):
+        _registered_check(
+            forged, frozen_load, preregistration_evidence=evidence
+        )
+
+
+def test_the_loader_rechecked_inputs_pass_against_the_bound_record(
+    frozen_load, evidence
+):
+    assert _registered_check(
+        frozen_load["inputs"], frozen_load, preregistration_evidence=evidence
+    ) == {
+        cohort.EVIDENCE_KEY: frozen_load["sha256"],
+        "input_frames_sha256": evidence["input_frames_sha256"],
+    }
+
+
+def test_relabelled_psid_file_hashes_refuse_against_the_bound_record(
+    frozen_load, evidence
+):
+    """Frames unchanged, but the provenance's file hashes relabelled and
+    the seal's bundle forged to match: the provenance check accepts it,
+    the evidence record does not."""
+
+    import dataclasses
+
+    rechecked = frozen_load["inputs"]
+    files = {
+        **dict(rechecked.provenance["psid_files_sha256"]),
+        "family/2019/FAM2019ER.txt": "0" * 64,
+    }
+    bundle = loader.files_bundle_sha256(files)
+    forged = dataclasses.replace(
+        rechecked,
+        provenance={
+            **rechecked.provenance,
+            "psid_files_sha256": files,
+            "psid_files_bundle_sha256": bundle,
+        },
+    )
+    object.__setattr__(
+        forged,
+        "loader_seal",
+        MappingProxyType(
+            {**rechecked.loader_seal, "psid_files_bundle_sha256": bundle}
+        ),
+    )
+    assert cohort._input_provenance(forged)["psid_files_sha256"] == files
+    with pytest.raises(runner.U2RunError, match="PSID file hashes"):
+        _registered_check(
+            forged, frozen_load, preregistration_evidence=evidence
+        )
+
+
+def test_relabelled_cited_sources_refuse_against_the_bound_record(
+    frozen_load, evidence
+):
+    import dataclasses
+
+    rechecked = frozen_load["inputs"]
+    forged = dataclasses.replace(
+        rechecked,
+        provenance={
+            **rechecked.provenance,
+            "cited_sources_sha256": {"PSID/invented.sps": "0" * 64},
+        },
+    )
+    object.__setattr__(forged, "loader_seal", rechecked.loader_seal)
+    cohort._input_provenance(forged)
+    with pytest.raises(runner.U2RunError, match="cited"):
+        _registered_check(
+            forged, frozen_load, preregistration_evidence=evidence
+        )
+
+
+@pytest.mark.parametrize(
+    "record, message",
+    [
+        (lambda e: {**e, "input_frames_sha256": "0" * 64}, "hashes to"),
+        (lambda e: {**e, "extra": 1}, "not valid"),
+        (lambda e: "not a record", "not valid"),
+    ],
+    ids=["another-record", "malformed", "not-a-mapping"],
+)
+def test_a_registered_run_needs_the_record_its_bound_hash_names(
+    frozen_load, evidence, record, message
+):
+    with pytest.raises(runner.U2RunError, match=message):
+        _registered_check(
+            frozen_load["inputs"],
+            frozen_load,
+            preregistration_evidence=record(dict(evidence)),
+        )
+
+
+def test_an_invented_run_takes_no_evidence_record(
+    u2_inputs, declared, evidence
+):
+    with pytest.raises(runner.U2RunError, match="binds no"):
+        runner.check_inputs(
+            u2_inputs,
+            ap.INVENTED,
+            None,
+            declared,
+            preregistration_evidence=evidence,
+        )
+
+
+def test_a_forged_seal_refuses_before_any_computation(
+    frozen_load, evidence, monkeypatch
+):
+    def reached(*args, **kwargs):
+        raise _Reached
+
+    monkeypatch.setattr(cohort, "derive_u2_births", reached)
+    with pytest.raises(runner.U2RunError, match="frame digest"):
+        runner.run_track_u2(
+            _income_forgery(frozen_load["inputs"]),
+            parameters.committed_u2_parameters(),
+            data_provenance=ap.REGISTERED_REAL,
+            role_context=sources.RoleContext.from_registry(),
+            registration_pointer=POINTER,
+            preregistration_evidence_sha256=frozen_load["sha256"],
+            preregistration_evidence=evidence,
+        )
+
+
+def _numeric_sites(inputs: cohort.U2Inputs) -> list[tuple]:
+    """``(field, wave or None, column)`` of every numeric column of every
+    nonempty input frame."""
+
+    sites = []
+    for name in ("anchors", "family_income", "family_wealth", "employer_dc"):
+        for wave, frame in sorted(getattr(inputs, name).items()):
+            if len(frame):
+                sites += [
+                    (name, wave, column)
+                    for column in frame.select_dtypes("number").columns
+                ]
+    for name in ("design", "persons", "marriage_history", "observed_earnings"):
+        frame = getattr(inputs, name)
+        if len(frame):
+            sites += [
+                (name, None, column)
+                for column in frame.select_dtypes("number").columns
+            ]
+    return sites
+
+
+@settings(max_examples=100, deadline=None)
+@given(data=st.data())
+def test_no_seal_forged_over_any_changed_cell_passes_the_registered_check(
+    frozen_load, evidence, data
+):
+    """Invariant (round 3, info 1): for every numeric cell of every input
+    frame and every nonzero INVENTED offset, inputs whose seal is forged
+    over the changed frames pass the provenance check yet refuse the
+    registered check, given only the bound hash and given the bound
+    evidence record; the loader's own rechecked inputs pass."""
+
+    rechecked = frozen_load["inputs"]
+    name, wave, column = data.draw(
+        st.sampled_from(_numeric_sites(rechecked)), label="site"
+    )
+    frames = getattr(rechecked, name)
+    frame = frames if wave is None else frames[wave]
+    row = data.draw(st.integers(0, len(frame) - 1), label="row")
+    offset = data.draw(
+        st.integers(1, 1000) | st.integers(-1000, -1), label="offset"
+    )
+    changed = _offset_cell(frame, column, row, offset)
+    forged = _forge(
+        rechecked,
+        **{name: changed if wave is None else {**frames, wave: changed}},
+    )
+    assume(
+        cohort.input_frames_sha256(forged) != evidence["input_frames_sha256"]
+    )
+    assert cohort._input_provenance(forged)[cohort.EVIDENCE_KEY] == (
+        frozen_load["sha256"]
+    )
+    with pytest.raises(runner.U2RunError, match="evidence record"):
+        _registered_check(forged, frozen_load)
+    with pytest.raises(runner.U2RunError, match="frame digest"):
+        _registered_check(
+            forged, frozen_load, preregistration_evidence=evidence
+        )
+    _registered_check(
+        rechecked, frozen_load, preregistration_evidence=evidence
+    )
+
+
+def test_a_registered_run_refuses_altered_row_definitions(
+    frozen_load, evidence, monkeypatch
+):
+    """Review round 3, info 2 (probe B3): U0 given the 2 percent interest
+    override passed every guard, which checked only the row ids, and
+    reached the row computation.  A registered run now refuses any
+    ``row_set`` before the inputs are checked."""
+
+    import dataclasses
+
+    altered = {
+        **rows.REGISTERED_ROWS,
+        "U0": dataclasses.replace(
+            rows.REGISTERED_ROWS["U0"], income={"real_interest_rate": 0.02}
+        ),
+    }
+    assert list(altered) == list(rows.ROW_IDS)
+    seen = []
+
+    def compute_row(row, *args, **kwargs):
+        seen.append(row)
+        raise _Reached
+
+    monkeypatch.setattr(runner, "_compute_row", compute_row)
+    with pytest.raises(runner.U2RunError, match="row_set"):
+        runner.run_track_u2(
+            frozen_load["inputs"],
+            parameters.committed_u2_parameters(),
+            data_provenance=ap.REGISTERED_REAL,
+            role_context=sources.RoleContext.from_registry(),
+            registration_pointer=POINTER,
+            row_set=altered,
+            preregistration_evidence_sha256=frozen_load["sha256"],
+        )
+    assert seen == []
+
+
+def test_a_registered_run_computes_the_registered_rows_by_default(
+    frozen_load, evidence, monkeypatch
+):
+    seen = []
+
+    def compute_row(row, *args, **kwargs):
+        seen.append(row)
+        raise _Reached
+
+    monkeypatch.setattr(runner, "_compute_row", compute_row)
+    with pytest.raises(_Reached):
+        runner.run_track_u2(
+            frozen_load["inputs"],
+            parameters.committed_u2_parameters(),
+            data_provenance=ap.REGISTERED_REAL,
+            role_context=sources.RoleContext.from_registry(),
+            registration_pointer=POINTER,
+            preregistration_evidence_sha256=frozen_load["sha256"],
+            preregistration_evidence=evidence,
+        )
+    (row,) = seen
+    assert row is rows.REGISTERED_ROWS[rows.HEADLINE_ROW]
+
+
+@settings(max_examples=60, deadline=None)
+@given(data=st.data())
+def test_a_registered_run_refuses_every_row_set_before_any_check(
+    frozen_load, u2_params, data
+):
+    """Invariant (round 3, info 2): a registered run computes exactly
+    :data:`rows.REGISTERED_ROWS`, so every ``row_set`` it is given -- the
+    registered mapping itself, value-equal copies, or rows carrying
+    another registered row's overrides or the unscored 2 percent
+    interest -- refuses before the inputs, the parameters or any row are
+    touched."""
+
+    import dataclasses
+
+    registered = list(rows.REGISTERED_ROWS.values())
+    row_set = {}
+    for row in registered:
+        kind = data.draw(
+            st.sampled_from(("same", "copy", "other", "interest")),
+            label=row.row_id,
+        )
+        if kind == "same":
+            row_set[row.row_id] = row
+        elif kind == "copy":
+            row_set[row.row_id] = dataclasses.replace(row)
+        elif kind == "other":
+            other = data.draw(st.sampled_from(registered))
+            row_set[row.row_id] = dataclasses.replace(
+                row, cohort=dict(other.cohort), income=dict(other.income)
+            )
+        else:
+            row_set[row.row_id] = dataclasses.replace(
+                row, income={**dict(row.income), "real_interest_rate": 0.02}
+            )
+    if data.draw(st.booleans(), label="the registered mapping itself"):
+        row_set = rows.REGISTERED_ROWS
+
+    def reached(*args, **kwargs):
+        raise _Reached
+
+    with pytest.MonkeyPatch.context() as patch:
+        patch.setattr(runner, "check_inputs", reached)
+        patch.setattr(parameters, "check_u2_parameters", reached)
+        patch.setattr(runner, "_compute_row", reached)
+        with pytest.raises(runner.U2RunError, match="row_set"):
+            runner.run_track_u2(
+                frozen_load["inputs"],
+                u2_params,
+                data_provenance=ap.REGISTERED_REAL,
+                role_context=sources.RoleContext.from_registry(),
+                registration_pointer=POINTER,
+                row_set=row_set,
+                preregistration_evidence_sha256=frozen_load["sha256"],
+            )
+
+
+class _RiggedProvenance:
+    """INVENTED: equal to nothing and unequal to nothing, so ``==`` and
+    ``!=`` tests against the registered label both come out False."""
+
+    def __eq__(self, other):
+        return False
+
+    def __ne__(self, other):
+        return False
+
+    __hash__ = object.__hash__
+
+
+@pytest.mark.parametrize(
+    "provenance",
+    [_RiggedProvenance(), type("_Label", (str,), {})(ap.REGISTERED_REAL)],
+    ids=["rigged-equality", "str-subclass"],
+)
+def test_a_registered_run_takes_only_an_exact_provenance_label(
+    frozen_load, evidence, monkeypatch, provenance
+):
+    """A label that is not exactly one of the two registered strings is
+    refused before anything else, so no comparison it rigs can skip the
+    row-set guard while the registered checks still run."""
+
+    import dataclasses
+
+    altered = {
+        **rows.REGISTERED_ROWS,
+        "U0": dataclasses.replace(
+            rows.REGISTERED_ROWS["U0"], income={"real_interest_rate": 0.02}
+        ),
+    }
+
+    def reached(*args, **kwargs):
+        raise _Reached
+
+    monkeypatch.setattr(runner, "_compute_row", reached)
+    with pytest.raises(runner.U2RunError, match="data_provenance"):
+        runner.run_track_u2(
+            frozen_load["inputs"],
+            parameters.committed_u2_parameters(),
+            data_provenance=provenance,
+            role_context=sources.RoleContext.from_registry(),
+            registration_pointer=POINTER,
+            row_set=altered,
+            preregistration_evidence_sha256=frozen_load["sha256"],
+            preregistration_evidence=evidence,
+        )
+
+
+class _MutatingProvenance(dict):
+    """INVENTED: a provenance mapping that, when the parameter check reads
+    it, adds an invented offset to one input frame in place and forges
+    the seal over the result (review round 3: check, then use)."""
+
+    def __init__(self, labels, act):
+        super().__init__(labels)
+        self._act = act
+
+    # Overriding ``__iter__`` takes ``dict(...)`` off its fast path, so the
+    # copy the parameter check makes calls ``keys``.
+    def __iter__(self):
+        self._act()
+        return super().__iter__()
+
+    def keys(self):
+        self._act()
+        return super().keys()
+
+
+def _private_copy(rechecked: cohort.U2Inputs) -> cohort.U2Inputs:
+    """The frozen load with its frames copied and its seal kept (equal
+    frames, so the loader's seal still holds): a copy a test may edit."""
+
+    import dataclasses
+
+    income = {
+        wave: frame.copy() for wave, frame in rechecked.family_income.items()
+    }
+    copy_ = dataclasses.replace(rechecked, family_income=income)
+    object.__setattr__(copy_, "loader_seal", rechecked.loader_seal)
+    return copy_
+
+
+def test_frames_changed_after_the_check_reach_no_row(
+    frozen_load, evidence, monkeypatch
+):
+    """Between the input check and the births, the run reads the caller's
+    parameter provenance.  An edit made there to the frames, with the seal
+    forged again, is refused: the births must carry the frame digest the
+    bound record froze, and every row's build compares with the births."""
+
+    import dataclasses
+
+    inputs = _private_copy(frozen_load["inputs"])
+    fired = []
+
+    def act():
+        if fired:
+            return
+        fired.append(True)
+        frame = inputs.family_income[2019]
+        column = frame.columns.get_loc("total_family_income")
+        frame.iat[0, column] = frame.iat[0, column] + _INVENTED_OFFSET
+        seal = {
+            **dict(inputs.loader_seal),
+            "input_frames_sha256": cohort.input_frames_sha256(inputs),
+        }
+        object.__setattr__(inputs, "loader_seal", MappingProxyType(seal))
+
+    pinned = parameters.committed_u2_parameters()
+    params = dataclasses.replace(
+        pinned,
+        thresholds=dataclasses.replace(
+            pinned.thresholds,
+            provenance=_MutatingProvenance(pinned.thresholds.provenance, act),
+        ),
+    )
+
+    def reached(*args, **kwargs):
+        raise _Reached
+
+    monkeypatch.setattr(runner, "_compute_row", reached)
+    with pytest.raises(runner.U2RunError, match="changed after"):
+        runner.run_track_u2(
+            inputs,
+            params,
+            data_provenance=ap.REGISTERED_REAL,
+            role_context=sources.RoleContext.from_registry(),
+            registration_pointer=POINTER,
+            preregistration_evidence_sha256=frozen_load["sha256"],
+            preregistration_evidence=evidence,
+        )
+    assert fired == [True]
+    assert (
+        cohort.input_frames_sha256(inputs) != evidence["input_frames_sha256"]
     )

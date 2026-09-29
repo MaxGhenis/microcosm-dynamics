@@ -295,6 +295,56 @@ def _round_2_refusals(
     }
 
 
+def _round_3_refusals(
+    inputs: cohort.U2Inputs,
+    params: parameters.U2Parameters,
+    registry_roles: sources.RoleContext,
+) -> dict[str, Any]:
+    """The refusals the round-3 review of milestone 2 named, on INVENTED
+    inputs: a registered run given a row set (the review's U0 with the
+    unscored 2 percent interest, and the registered rows themselves), and
+    an invented run naming an evidence record.  The forged-seal refusal
+    needs loader-sealed inputs, so it is tested on the invented staged
+    files instead (``tests/track_u2/test_u2_loader.py``)."""
+
+    headline = rows.REGISTERED_ROWS[rows.HEADLINE_ROW]
+    altered = {
+        **rows.REGISTERED_ROWS,
+        rows.HEADLINE_ROW: dataclasses.replace(
+            headline, income={"real_interest_rate": 0.02}
+        ),
+    }
+
+    def registered(row_set: Any) -> dict[str, Any]:
+        return _refusal(
+            lambda: runner.run_track_u2(
+                inputs,
+                params,
+                data_provenance=ap.REGISTERED_REAL,
+                role_context=registry_roles,
+                registration_pointer=_GUARD_POINTER,
+                row_set=row_set,
+            )
+        )
+
+    return {
+        "registered_run_given_altered_row_definitions": registered(altered),
+        "registered_run_given_the_registered_rows": registered(
+            rows.REGISTERED_ROWS
+        ),
+        "invented_run_naming_an_evidence_record": _refusal(
+            lambda: runner.check_inputs(
+                inputs,
+                ap.INVENTED,
+                None,
+                sources.RoleContext.declared(),
+                # INVENTED record: an invented run refuses any record.
+                preregistration_evidence={"input_frames_sha256": "0" * 64},
+            )
+        ),
+    }
+
+
 def _mapping_checks(inputs: cohort.U2Inputs) -> dict[str, Any]:
     """Invented fixed-width records through every wave's registry layout."""
 
@@ -866,6 +916,7 @@ def checks(
             inputs, params, census, registries, registry_roles
         ),
         "round_2_refusals": _round_2_refusals(inputs, params, census),
+        "round_3_refusals": _round_3_refusals(inputs, params, registry_roles),
         "census_capture": {
             "sha256": census.provenance["sha256"],
             "overlap_2012": census.provenance["overlap_2012"],
@@ -1028,6 +1079,7 @@ def results_markdown(result: dict[str, Any]) -> str:
     ]["refused"]
     round_1 = check["round_1_refusals"]
     round_2 = check["round_2_refusals"]
+    round_3 = check["round_3_refusals"]
     u1_branch = check["row_branches"]["U1"]
     lines += [
         "",
@@ -1118,6 +1170,11 @@ def results_markdown(result: dict[str, Any]) -> str:
             f"{name} {entry['refused']}"
             for name, entry in round_2.items()
             if isinstance(entry, dict)
+        )
+        + ".",
+        "- Round-3 review refusals (invented): "
+        + ", ".join(
+            f"{name} {entry['refused']}" for name, entry in round_3.items()
         )
         + ".",
         "- Per-observation monotonicity and SSI bounds, every row: "
