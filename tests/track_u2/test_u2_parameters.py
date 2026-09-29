@@ -459,10 +459,11 @@ def test_any_single_altered_value_refuses_the_registered_check(where, value):
     labels name U2's pinned sources (target U2; thresholds labelled the
     pinned Track M Census capture and SSI the pinned U2 SSI capture, each
     bound to U2; each life table's pinned SHA-256), the registered check
-    accepts it iff it holds only the pinned loaders' exact types and the
-    pinned files' keys, with every value equal to theirs.  Here labels,
-    types and keys are the pinned bundle's, so one value moved anywhere
-    (threshold, SSI or life-table ``qx``) refuses."""
+    accepts it iff its digested content holds only the pinned loaders'
+    exact types, and it has the pinned files' keys and life-table names,
+    with every value equal to theirs.  Here labels, types, keys and names
+    are the pinned bundle's, so one value moved anywhere (threshold, SSI
+    or life-table ``qx``) refuses."""
 
     component, location = where
     if component == "qx":
@@ -794,6 +795,30 @@ def test_every_precondition_label_is_necessary(site, text):
         (parameters.U2ParameterError, identity.U2IdentityError)
     ):
         parameters.check_u2_parameters(relabelled, ap.REGISTERED_REAL)
+
+
+@pytest.mark.parametrize("swap", [False, True], ids=["renamed", "swapped"])
+def test_life_table_names_are_content(swap):
+    """Invariant 13's second clause includes each life table's pinned name
+    (round 3): a renamed table, or the two names swapped, keeps every
+    label and number yet changes the digest and refuses."""
+
+    tables = dict(_PINNED.life_tables)
+    if swap:
+        names = {
+            "nchs_2000": "ssa_period_2004",
+            "ssa_period_2004": "nchs_2000",
+        }
+    else:
+        names = {"nchs_2000": "renamed_invented_table"}
+    for basis, name in names.items():
+        tables[basis] = dataclasses.replace(tables[basis], name=name)
+    bundle = dataclasses.replace(_PINNED, life_tables=tables)
+    assert parameters.parameters_content_sha256(bundle) != (
+        parameters.parameters_content_sha256(_PINNED)
+    )
+    with pytest.raises(parameters.U2ParameterError, match="filed under"):
+        parameters.check_u2_parameters(bundle, ap.REGISTERED_REAL)
 
 
 class _LyingDict(dict):
