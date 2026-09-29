@@ -2338,6 +2338,7 @@ def test_the_snapshot_records_the_bound_records_provenance(
         sources.RegistrySet.committed().provenance()
     )
     assert recorded["psid_data_dir"] is None
+    assert recorded[cohort.SNAPSHOT_KEY] is True
 
 
 @pytest.mark.parametrize(
@@ -2450,10 +2451,11 @@ def test_the_snapshot_rebuilds_the_loader_and_generator_frames_exactly(
             )
 
 
+#: INVENTED text: printable characters, including the CSV delimiter and
+#: quote, without control characters or lone surrogates (which the digest
+#: refuses as invalid Unicode).
 _TEXT = st.text(
-    alphabet=st.characters(
-        blacklist_categories=("Cs",), blacklist_characters="\r"
-    ),
+    alphabet=st.characters(blacklist_categories=("Cs", "Cc")),
     min_size=1,
     max_size=12,
 )
@@ -2510,21 +2512,151 @@ def _frames(draw):
 
 @settings(max_examples=300, deadline=None)
 @given(frame=_frames())
-def test_no_frame_rebuilds_to_other_values_under_the_same_text(frame):
-    """Invariant (round 3, third pass): for every frame over the allowed
-    dtypes, rebuilding from the digested text either refuses or gives back
-    the same values and dtypes -- never other values under the same text,
-    which a registered run would compute on silently."""
+def test_every_frame_over_the_allowed_dtypes_rebuilds_exactly(frame):
+    """Invariant (round 3): every frame built from base types over the
+    allowed dtypes -- full-precision floats, NaN, infinities, missing
+    values, text with delimiters and quotes -- is accepted by the type
+    rules and rebuilds from its digested text to the same values and
+    dtypes.  No refusal passes: a refusal here would be a false refusal
+    of a legitimate frame at step 4 (the third round of verification
+    found pandas' default float parser misreading 16-17 digit reprs)."""
 
-    try:
-        text = cohort._frame_text("invented", frame)
-    except cohort.U2CohortError:
-        return
-    try:
-        rebuilt = cohort._rebuild_frame("invented", text)
-    except cohort.U2CohortError:
-        return
+    text = cohort._frame_text("invented", frame)
+    rebuilt = cohort._rebuild_frame("invented", text)
     pd.testing.assert_frame_equal(rebuilt, frame, check_exact=True)
+    assert cohort._frame_text("invented", rebuilt) == text
+
+
+def test_computed_floats_rebuild_exactly():
+    """The verification's case: a weight computed as 0.013 * 8950792
+    (INVENTED) writes a 17-digit repr that the default parser misreads."""
+
+    frame = pd.DataFrame(
+        {"weight": np.array([0.013 * 8_950_792, 0.1 + 0.2, 1 / 3])}
+    )
+    rebuilt = cohort._rebuild_frame(
+        "invented", cohort._frame_text("invented", frame)
+    )
+    pd.testing.assert_frame_equal(rebuilt, frame, check_exact=True)
+
+
+def test_role_contexts_hold_private_rule_objects():
+    """Round 3: each RoleContext holds its own copies of the committed
+    rules, so an in-place edit of one context's (frozen) RoleRule cannot
+    reach another context -- a registered run's fresh one included."""
+
+    first = sources.RoleContext.from_registry()
+    second = sources.RoleContext.from_registry()
+    assert {id(rule) for rule in first.rules.values()}.isdisjoint(
+        id(rule) for rule in second.rules.values()
+    )
+    committed = sources.role_rules_text(second.rules)
+    rule = first.rules[(2015, 20)]
+    object.__setattr__(rule, "refusal", None)  # INVENTED edit in place
+    assert sources.role_rules_text(second.rules) == committed
+    assert (
+        sources.role_rules_text(sources.RoleContext.from_registry().rules)
+        == committed
+    )
+
+
+def test_rules_edited_in_place_from_the_callback_reach_no_row(
+    frozen_load, evidence, monkeypatch
+):
+    """The verification's case: the progress callback edits the passed
+    context's RoleRule objects in place, after the run built its fresh
+    context.  The rows' rules are still the committed ones."""
+
+    caller = sources.RoleContext.from_registry()
+    committed = sources.role_rules_text(caller.rules)
+    seen = []
+
+    def progress(message):
+        for rule in caller.rules.values():
+            object.__setattr__(rule, "refusal", None)  # INVENTED edit
+
+    def compute_row(row, inputs, params, births, *, role_context, **kwargs):
+        seen.append(sources.role_rules_text(role_context.rules))
+        raise _Reached
+
+    monkeypatch.setattr(runner, "_compute_row", compute_row)
+    with pytest.raises(_Reached):
+        runner.run_track_u2(
+            frozen_load["inputs"],
+            parameters.committed_u2_parameters(),
+            data_provenance=ap.REGISTERED_REAL,
+            role_context=caller,
+            registration_pointer=POINTER,
+            preregistration_evidence_sha256=frozen_load["sha256"],
+            preregistration_evidence=evidence,
+            progress=progress,
+        )
+    assert sources.role_rules_text(caller.rules) != committed
+    assert seen == [committed]
+
+
+def test_no_evidence_is_recorded_from_a_registered_snapshot(
+    frozen_load, evidence, monkeypatch
+):
+    """The snapshot is private and marked: the step-4 evidence writer
+    refuses it, and cohort exports no function that mints one."""
+
+    assert not hasattr(cohort, "registered_snapshot")
+    used = _row_inputs(
+        frozen_load, evidence, monkeypatch, frozen_load["inputs"]
+    )
+    assert cohort._input_provenance(used)[cohort.SNAPSHOT_KEY] is True
+    with pytest.raises(loader.U2LoaderRefusal, match="snapshot"):
+        loader.preregistration_evidence(used)
+
+
+def test_an_object_column_holds_only_nan_as_missing(u2_inputs):
+    """None or pd.NA in an object column would rebuild as NaN: refused, so
+    a rebuild gives back exactly the same values."""
+
+    import dataclasses
+
+    for marker in (None, pd.NA):
+        persons = u2_inputs.persons.assign(
+            sex=pd.Series(
+                list(u2_inputs.persons["sex"].iloc[:-1]) + [marker],
+                dtype=object,
+            )
+        )
+        with pytest.raises(cohort.U2CohortError, match="NaN"):
+            cohort.input_frames_sha256(
+                dataclasses.replace(u2_inputs, persons=persons)
+            )
+
+
+def test_invalid_unicode_refuses_as_a_cohort_error(u2_inputs):
+    import dataclasses
+
+    persons = u2_inputs.persons.copy()
+    persons.iloc[0, persons.columns.get_loc("sex")] = "x\ud800"
+    with pytest.raises(cohort.U2CohortError, match="Unicode"):
+        cohort.input_frames_sha256(
+            dataclasses.replace(u2_inputs, persons=persons)
+        )
+
+
+def test_a_role_registry_refusal_is_a_run_error(
+    frozen_load, evidence, monkeypatch
+):
+    def refuse(*args, **kwargs):
+        raise sources.U2SourceRefusal("INVENTED refusal")
+
+    registry = sources.RoleContext.from_registry()
+    monkeypatch.setattr(sources.RoleContext, "from_registry", refuse)
+    with pytest.raises(runner.U2RunError, match="INVENTED refusal"):
+        runner.check_inputs(
+            frozen_load["inputs"],
+            ap.REGISTERED_REAL,
+            POINTER,
+            registry,
+            preregistration_evidence_sha256=frozen_load["sha256"],
+            preregistration_evidence=evidence,
+        )
 
 
 @pytest.mark.parametrize(

@@ -686,8 +686,9 @@ def preregistration_evidence_sha256(record: Mapping[str, Any]) -> str:
 def preregistration_evidence(inputs: cohort.U2Inputs) -> dict[str, Any]:
     """The frozen identities of loader-sealed inputs (section 20 step 4).
 
-    Refuses inputs the U2 loader did not seal, or whose frames or file
-    hashes changed after sealing (``cohort._input_provenance``), or whose
+    Refuses inputs the U2 loader did not seal (a registered run's private
+    snapshot included), or whose frames or file hashes changed after
+    sealing (``cohort._input_provenance``), or whose
     frames do not rebuild from the text their digest hashes
     (``cohort.rebuilt_input_frames``): a registered run computes only on
     rebuilt frames, so this refusal comes at step 4, before registration.
@@ -702,8 +703,13 @@ def preregistration_evidence(inputs: cohort.U2Inputs) -> dict[str, Any]:
             "pre-registration evidence is recorded only from inputs the U2 "
             f"loader sealed, not {provenance['kind']!r}"
         )
+    if provenance.get(cohort.SNAPSHOT_KEY):
+        raise U2LoaderRefusal(
+            "pre-registration evidence is recorded only from inputs the U2 "
+            "loader read, not from a registered run's private snapshot"
+        )
     # A registered run computes only on frames rebuilt from the text their
-    # digest hashes (cohort.registered_snapshot); refuse here, before the
+    # digest hashes (cohort._registered_snapshot); refuse here, before the
     # digest is frozen, any frame that would not rebuild (review round 3).
     try:
         _, rebuilt = cohort.rebuilt_input_frames(inputs)

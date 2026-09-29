@@ -839,10 +839,22 @@ class RoleContext:
                 f"a {self.kind!r} role context holds rules other than "
                 f"{source}'s (first differing (wave, code): {differ[:3]})"
             )
-        # Hold the verified committed (or declared) rule objects, never the
-        # caller's: equal text, but only these are known to behave as
-        # RoleRules (review round 3).
-        object.__setattr__(self, "rules", MappingProxyType(dict(expected)))
+        # Hold private copies of the verified committed (or declared)
+        # rules, never the caller's objects (equal text, but only these are
+        # known to behave as RoleRules) and never the shared cached ones: a
+        # frozen RoleRule can still be edited in place, and a copy shared
+        # between contexts would carry one caller's edit into another
+        # context, a registered run's fresh one included (review round 3).
+        object.__setattr__(
+            self,
+            "rules",
+            MappingProxyType(
+                {
+                    key: RoleRule(**rule.as_dict())
+                    for key, rule in expected.items()
+                }
+            ),
+        )
 
     @classmethod
     def declared(cls) -> RoleContext:

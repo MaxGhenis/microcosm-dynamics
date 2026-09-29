@@ -42,7 +42,7 @@ row ids and the fixed U0 headline.
      hash to the bound value; each input frame's text is written once,
      hashed, and parsed into a private snapshot that must write the same
      text again (:func:`~populace_dynamics.uniform_cut_track_u2.cohort.
-     registered_snapshot`), and that digest, and the inputs' recorded
+     _registered_snapshot`), and that digest, and the inputs' recorded
      PSID file and cited-source hashes (plain dicts of exact str), must
      equal the record's frozen ones (the seal is only the loader's
      claim);
@@ -154,7 +154,7 @@ def check_inputs(
     Returns what the checks verified (the run records it).  A registered
     run computes on the private snapshot the checks build
     (:func:`~populace_dynamics.uniform_cut_track_u2.cohort.
-    registered_snapshot`), never on ``inputs``.
+    _registered_snapshot`), never on ``inputs``.
 
     ``preregistration_evidence_sha256`` is the evidence hash the
     registration binds (``run_track_u2_registered.py`` passes the one its
@@ -261,9 +261,7 @@ def _check_inputs(
         caller_rules = sources.role_rules_text(role_context.rules)
     except sources.U2SourceRefusal as error:
         raise U2RunError(str(error)) from error
-    if caller_rules != sources.role_rules_text(
-        sources.RoleContext.from_registry().rules
-    ):
+    if caller_rules != sources.role_rules_text(_committed_roles().rules):
         raise U2RunError(
             "the registry role context holds role rules other than the "
             "committed roles registry's: a registered U2 run applies the "
@@ -309,7 +307,7 @@ def _check_inputs(
     # frame's text written once, and the run computes on frames parsed
     # from that same text, so nothing the caller's objects do reaches it.
     try:
-        snapshot, frames = cohort.registered_snapshot(inputs, frozen, bound)
+        snapshot, frames = cohort._registered_snapshot(inputs, frozen, bound)
     except cohort.U2CohortError as error:
         raise U2RunError(str(error)) from error
     if frozen["input_frames_sha256"] != frames:
@@ -343,6 +341,15 @@ def _check_inputs(
         {cohort.EVIDENCE_KEY: evidence, "input_frames_sha256": frames},
         snapshot,
     )
+
+
+def _committed_roles() -> sources.RoleContext:
+    """A fresh committed-registry role context, its refusals as U2RunError."""
+
+    try:
+        return sources.RoleContext.from_registry()
+    except sources.U2SourceRefusal as error:
+        raise U2RunError(str(error)) from error
 
 
 def _bound_evidence(record: Any, bound: str) -> dict[str, Any]:
@@ -702,7 +709,7 @@ def run_track_u2(
         # Likewise the role rules (review round 3): check_inputs showed the
         # caller's context equal to the committed one; the rows get a fresh
         # one, so nothing the caller still holds can reach them.
-        role_context = sources.RoleContext.from_registry()
+        role_context = _committed_roles()
     say = progress or (lambda message: None)
     births = cohort.derive_u2_births(inputs)
     # Check, then use (review round 3): the parameter check above reads the

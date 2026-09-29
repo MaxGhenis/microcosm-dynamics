@@ -116,6 +116,7 @@ __all__ = [
     "PRIMARY_BIRTH_YEARS",
     "PRIMARY_WAVES",
     "PSID_FILES",
+    "SNAPSHOT_KEY",
     "ROWS",
     "SEED_WAVE_RULE",
     "SUPPORT_WAVES",
@@ -139,7 +140,6 @@ __all__ = [
     "pending_decisions",
     "plan_cells",
     "rebuilt_input_frames",
-    "registered_snapshot",
     "structural_summary",
 ]
 
@@ -161,8 +161,13 @@ PSID_FILES = "psid_files"
 CALLER_FRAMES = "caller_frames"
 #: The loader seal's and provenance's record of the frozen pre-registration
 #: evidence the inputs were rechecked against (section 14; set only by
-#: :func:`~populace_dynamics.uniform_cut_track_u2.loader.load_u2_inputs`).
+#: :func:`~populace_dynamics.uniform_cut_track_u2.loader.load_u2_inputs`,
+#: and by a registered run's private snapshot from the bound record,
+#: :func:`_registered_snapshot`).
 EVIDENCE_KEY = "preregistration_evidence_sha256"
+#: The provenance mark of a registered run's private snapshot (review round
+#: 3): pre-registration evidence is never recorded from one.
+SNAPSHOT_KEY = "registered_snapshot"
 MARITAL_STATUS_4: tuple[str, ...] = (
     "married",
     "widowed",
@@ -447,7 +452,7 @@ class U2Inputs:
 #: the dtype a snapshot parses each column's text with (review round 3):
 #: the dtypes the U2 loader and U1's marriage and earnings readers build.
 #: Each stores machine values or strings, and each rebuilds exactly from
-#: the CSV text the digest hashes (:func:`registered_snapshot`); any other
+#: the CSV text the digest hashes (:func:`_registered_snapshot`); any other
 #: dtype refuses at the digest, so at every load, before any registration.
 _FRAME_DTYPES: dict[str, Any] = {
     "int64": "int64",
@@ -458,6 +463,10 @@ _FRAME_DTYPES: dict[str, Any] = {
     "str": "str",
     "string": "string",
 }
+
+
+def _nan(value: Any) -> bool:
+    return type(value) is float and math.isnan(value)
 
 
 def _missing(value: Any) -> bool:
@@ -490,7 +499,7 @@ def _check_frame_types(name: str, frame: pd.DataFrame) -> None:
     writes an empty string and a missing value alike).  The U2 loader,
     U1's marriage and earnings readers and the invented generator build
     only such frames.  A registered run further computes only on frames
-    rebuilt from the digested text (:func:`registered_snapshot`).
+    rebuilt from the digested text (:func:`_registered_snapshot`).
     """
 
     if frame.attrs:
@@ -521,14 +530,19 @@ def _check_frame_types(name: str, frame: pd.DataFrame) -> None:
         textual = isinstance(dtype, np.dtype) and dtype.kind == "O"
         if not textual and type(dtype) is not pd.StringDtype:
             continue
+        # A string dtype holds one missing marker of its own; an object
+        # column's missing cells must be the float NaN a rebuild parses, so
+        # the rebuilt frame holds exactly the same values.
+        missing = _missing if not textual else _nan
         for value in frame.iloc[:, position].tolist():
-            if (type(value) is not str or value == "") and not _missing(value):
+            if (type(value) is not str or value == "") and not missing(value):
                 raise U2CohortError(
                     f"input frame {name} column {columns[position]!r} holds "
                     f"a {type(value).__qualname__} cell {value!r:.40}; every "
                     "cell of an object or string column must be a nonempty "
-                    "exact str or missing, since a subclass can print as one "
-                    "value and compare as another (review round 3)"
+                    "exact str or missing (NaN in an object column), since a "
+                    "subclass can print as one value and compare as another "
+                    "(review round 3)"
                 )
 
 
@@ -542,11 +556,20 @@ def _frame_text(name: str, frame: Any) -> tuple[str, str, str]:
             "pandas.DataFrame: a frame's digest must come from its data"
         )
     _check_frame_types(name, frame)
-    return (
+    text = (
         json.dumps([str(c) for c in frame.columns]),
         json.dumps([str(t) for t in frame.dtypes]),
         frame.to_csv(index=False, lineterminator="\n"),
     )
+    try:
+        for part in text:
+            part.encode()
+    except UnicodeError as error:
+        raise U2CohortError(
+            f"input frame {name} holds text that is not valid Unicode: "
+            f"{error}"
+        ) from error
+    return text
 
 
 def _frame_digest(digest: Any, name: str, frame: Any) -> tuple[str, str, str]:
@@ -636,19 +659,33 @@ def input_frames_sha256(inputs: U2Inputs) -> str:
 
 def _rebuild_frame(name: str, text: tuple[str, str, str]) -> pd.DataFrame:
     """The frame parsed from ``text`` (labels, dtype names, CSV), which
-    must write ``text`` again exactly."""
+    must write ``text`` again exactly.
+
+    Floats are parsed with the round-trip converter: pandas' default one
+    misreads some 16-17 digit reprs, which ``to_csv`` writes for computed
+    floats (review round 3).  The rebuilt frame has a default RangeIndex
+    (the digest omits the index; the loader's frames have one, and no U2
+    computation reads the input frames' index).
+    """
 
     labels_text, dtypes_text, csv_text = text
     labels, dtypes = json.loads(labels_text), json.loads(dtypes_text)
-    frame = pd.read_csv(
-        io.StringIO(csv_text),
-        dtype={
-            label: _FRAME_DTYPES[dtype]
-            for label, dtype in zip(labels, dtypes, strict=True)
-        },
-        keep_default_na=False,
-        na_values=[""],
-    )
+    try:
+        frame = pd.read_csv(
+            io.StringIO(csv_text),
+            dtype={
+                label: _FRAME_DTYPES[dtype]
+                for label, dtype in zip(labels, dtypes, strict=True)
+            },
+            keep_default_na=False,
+            na_values=[""],
+            float_precision="round_trip",
+        )
+    except (ValueError, pd.errors.ParserError) as error:
+        raise U2CohortError(
+            f"input frame {name} does not parse from the text its digest "
+            f"hashes: {error}"
+        ) from error
     if _frame_text(name, frame) != text:
         raise U2CohortError(
             f"input frame {name} does not rebuild from the text its digest "
@@ -680,12 +717,18 @@ def rebuilt_input_frames(inputs: U2Inputs) -> tuple[dict[str, Any], str]:
     return rebuilt, digest.hexdigest()
 
 
-def registered_snapshot(
+def _registered_snapshot(
     inputs: U2Inputs,
     evidence: Mapping[str, Any],
     evidence_sha256: str,
 ) -> tuple[U2Inputs, str]:
     """The private inputs a registered run computes on, and their digest.
+
+    Private: only :func:`~populace_dynamics.uniform_cut_track_u2.runner.
+    check_inputs` calls it, with a record it has validated
+    (``loader.check_preregistration_evidence``) and shown to hash to the
+    bound value.  The snapshot is marked (:data:`SNAPSHOT_KEY`), and no
+    pre-registration evidence is recorded from it.
 
     Check, then use (review round 3).  Each input frame's text is written
     once as the digest writes it and hashed, and a new frame is parsed
@@ -714,6 +757,7 @@ def registered_snapshot(
             str(k): str(v) for k, v in evidence["cited_sources_sha256"].items()
         },
         EVIDENCE_KEY: str(evidence_sha256),
+        SNAPSHOT_KEY: True,
     }
     snapshot = U2Inputs(provenance=provenance, **rebuilt)
     object.__setattr__(
@@ -846,6 +890,8 @@ def _input_provenance(inputs: U2Inputs) -> dict[str, Any]:
         }
         if evidence is not None:
             out[EVIDENCE_KEY] = evidence
+        if recorded.get(SNAPSHOT_KEY) is True:
+            out[SNAPSHOT_KEY] = True
         return out
     return {
         "kind": CALLER_FRAMES,
