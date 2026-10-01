@@ -9,17 +9,25 @@ Order of work, each step refusing before the next starts:
 
 1. **Seal.** Hash every file the seal lists (``files: {path relative to
    the evidence folder: {sha256, bytes}}``) and refuse on any mismatch,
-   missing file or path outside the folder. Print the seal's own SHA-256.
-   The comparator record must be one of the sealed files.
+   missing file or path outside the folder. Print the seal's own SHA-256
+   at once. A registered comparison also requires that SHA-256 to be the
+   one ``EV/RESTRICTED-FILES.md`` records (``REGISTERED_SEAL_SHA256``)
+   unless ``--expect-seal-sha256`` names another. The comparator record
+   must be one of the sealed files; it is read once, its bytes checked
+   against the seal, and those bytes parsed.
 2. **Artifact.** Refuse unless the artifact's SHA-256 equals its
    ``.env.json`` sidecar's ``artifact_sha256`` and the sidecar names it.
    An artifact that is not ``registered_real`` is refused unless
    ``--allow-invented`` is passed; the output then says INVENTED DATA.
-3. **Record.** Schema ``acola-comparator-v1``. Every value is parsed from
+3. **Record.** Schema ``acola-comparator-v1``, producer ``reconciled``
+   (a single transcription is refused). Every value is parsed from
    its string with ``decimal.Decimal`` (the artifact too, with
    ``parse_float=Decimal``), and all arithmetic is exact rational
-   arithmetic with ``fractions.Fraction``. ``null`` fields are reported
-   with a reason, never guessed.
+   arithmetic with ``fractions.Fraction``. ``NaN`` and ``Infinity`` tokens
+   are refused. ``null`` fields are reported with a reason, never guessed.
+   The recorded identity flags (footer, provision text, row label and
+   year, ``Last-Modified``) are reported, never substituted; a row label
+   or year other than 2030 makes that comparator undefined.
 4. **Comparisons**, as Registration 18 registers them ("Comparators",
    "Spec-only null", "What is reported"):
 
@@ -64,6 +72,8 @@ import hashlib
 import json
 import sys
 from decimal import (
+    ROUND_CEILING,
+    ROUND_FLOOR,
     ROUND_HALF_EVEN,
     ROUND_HALF_UP,
     Decimal,
@@ -78,6 +88,13 @@ ROOT = Path(__file__).resolve().parents[1]
 SCHEMA_VERSION = "populace_dynamics.acola_track.compare.v1"
 RECORD_SCHEMA = "acola-comparator-v1"
 RECORD_RELATIVE = "acola-comparator-20260930/reconciled.json"
+RECORD_PRODUCER = "reconciled"
+#: The comparator seal's SHA-256 as EV/RESTRICTED-FILES.md records it
+#: (sealed 2026-10-01, 91 files). A registered comparison refuses any other
+#: seal unless --expect-seal-sha256 names it.
+REGISTERED_SEAL_SHA256 = (
+    "f90a59bf493f27fea32b5ccd62a7313486482bc6b5bf4a7ff1b65e9e74fa0d8d"
+)
 DEFAULT_ARTIFACT = ROOT / "runs" / "trust_fund_acola_2030_v1.json"
 REGISTRATION_POINTER = (
     "https://github.com/PolicyEngine/microcosm-dynamics/issues/42"
@@ -170,8 +187,15 @@ class RecordError(ValueError):
 # ---- exact numbers -----------------------------------------------------
 
 
-def render(value: Fraction | None) -> str | None:
-    """A terminating decimal in full; otherwise 20 significant digits."""
+def render(
+    value: Fraction | None, rounding: str = ROUND_HALF_EVEN
+) -> str | None:
+    """A terminating decimal in full; otherwise 20 significant digits.
+
+    Interval ends are rendered outward (``ROUND_FLOOR`` for the lower end,
+    ``ROUND_CEILING`` for the upper), so a rendered interval always
+    contains the exact one.
+    """
 
     if value is None:
         return None
@@ -188,7 +212,7 @@ def render(value: Fraction | None) -> str | None:
         return text
     with localcontext() as context:
         context.prec = RENDER_DIGITS
-        context.rounding = ROUND_HALF_EVEN
+        context.rounding = rounding
         rounded = Decimal(value.numerator) / Decimal(value.denominator)
     return (
         format(rounded, "f") if abs(rounded.adjusted()) < 30 else str(rounded)
@@ -404,10 +428,19 @@ def verify_record_is_sealed(
     }
 
 
-def load_json_exact(raw: bytes) -> Any:
-    """JSON with every float literal kept as the Decimal it prints."""
+def _refuse_constant(token: str) -> Any:
+    raise RecordError(f"the JSON holds the non-finite token {token}")
 
-    return json.loads(raw, parse_float=Decimal)
+
+def load_json_exact(raw: bytes) -> Any:
+    """JSON with every float literal kept as the Decimal it prints.
+
+    ``NaN``, ``Infinity`` and ``-Infinity`` tokens are refused at load.
+    """
+
+    return json.loads(
+        raw, parse_float=Decimal, parse_constant=_refuse_constant
+    )
 
 
 def verify_artifact(
@@ -686,6 +719,20 @@ def compare_oact(record: dict[str, Any]) -> dict[str, Any]:
             key: _memo_column(_column(oact, key)) for key in OACT_MEMO
         },
     }
+    if oact.get("row_label_verbatim") != "2030":
+        output.update(
+            defined=False,
+            undefined_reason=(
+                "the recorded OACT row label is not 2030, so these are not "
+                "the registered cells"
+            ),
+            precision_gate={
+                "branch": "undefined",
+                "reason": "the OACT row is not 2030",
+                "primary": "PWBM",
+            },
+        )
+        return output
     columns = {key: _column(oact, key) for key in (OACT_P, OACT_D)}
     missing = [
         key
@@ -759,9 +806,19 @@ def compare_oact(record: dict[str, Any]) -> dict[str, Any]:
     ):
         alt_hp = half_unit(p_check["decimals_in_string"])
         alt_hd = half_unit(d_check["decimals_in_string"])
-        output["alternative_interval_from_string_decimals"] = four_corner(
-            oact_statistic, p, alt_hp, d, alt_hd
-        )[1]
+        if p - d - alt_hp - alt_hd > 0:
+            alternative = four_corner(oact_statistic, p, alt_hp, d, alt_hd)[1]
+        else:
+            alternative = None
+        output["alternative_interval_from_string_decimals"] = {
+            "defined": alternative is not None,
+            "interval": alternative,
+            "undefined_reason": (
+                None
+                if alternative is not None
+                else "p - d is not positive at every corner"
+            ),
+        }
     return output
 
 
@@ -805,6 +862,15 @@ def compare_pwbm(record: dict[str, Any]) -> dict[str, Any]:
             for key in PWBM_MEMO
         },
     }
+    if row.get("year") != "2030":
+        output.update(
+            defined=False,
+            undefined_reason=(
+                "the recorded PWBM row is not year 2030, so these are not "
+                "the registered cells"
+            ),
+        )
+        return output
     if row.get(PWBM_B) is None or row.get(PWBM_R) is None:
         output.update(
             defined=False,
@@ -954,11 +1020,6 @@ def reading_s(entry: dict[str, Any], html: Decimal, places: int) -> dict:
     raw, number_format = entry.get("xlsx_raw"), entry.get("xlsx_number_format")
     if raw is None:
         return {"available": False, "reason": "xlsx_raw is null"}
-    if not isinstance(number_format, str):
-        return {
-            "available": False,
-            "reason": "xlsx_number_format is null; units cannot be read",
-        }
     try:
         stored = float(raw)
     except (TypeError, ValueError):
@@ -970,7 +1031,14 @@ def reading_s(entry: dict[str, Any], html: Decimal, places: int) -> dict:
             "available": False,
             "reason": "the stored double is not finite",
         }
-    signs = percent_signs(number_format, base)
+    # A null format is read literally as "not a percent format": the value
+    # is then Decimal(s), and if its units differ from the display's it
+    # cannot round to the display, so the HTML branch follows.
+    signs = (
+        percent_signs(number_format, base)
+        if isinstance(number_format, str)
+        else 0
+    )
     if signs > 1:
         return {
             "available": False,
@@ -981,6 +1049,7 @@ def reading_s(entry: dict[str, Any], html: Decimal, places: int) -> dict:
     return {
         "available": True,
         "shortest_repr": shortest,
+        "number_format_recorded": isinstance(number_format, str),
         "percent_format": signs == 1,
         "value_percent_units": value,
         "decimals": stored_places,
@@ -1031,10 +1100,15 @@ def _branch(reading: dict, html: Decimal, places: int) -> dict[str, Any]:
 
 
 def compare_mint_band(entry: dict | None) -> dict[str, Any]:
-    if not isinstance(entry, dict) or entry.get("html_value") is None:
+    if not isinstance(entry, dict):
         return {
             "defined": False,
-            "undefined_reason": "median_diff_pct or its HTML value is null",
+            "undefined_reason": "median_diff_pct is null",
+        }
+    if entry.get("html_value") is None:
+        return {
+            "defined": False,
+            "undefined_reason": "median_diff_pct's HTML value is null",
         }
     html, places, html_check = _counted(
         entry["html_value"], entry.get("html_decimals"), "html_value"
@@ -1087,6 +1161,7 @@ def compare_mint(record: dict[str, Any]) -> dict[str, Any]:
         median_type, HEADLINE_BY_MEDIAN_TYPE["unsettled"]
     )
     start = mint.get("start_date_reading")
+    rows = rows if isinstance(rows, dict) else {}
     return {
         "defined": True,
         "median_type": median_type,
@@ -1105,11 +1180,21 @@ def compare_mint(record: dict[str, Any]) -> dict[str, Any]:
         "december_2030_timing": mint.get("december_2030_timing"),
         "prints_oasi_di_split": mint.get("prints_oasi_di_split"),
         "bands": {
-            band: compare_mint_band(
-                (rows.get(band) or {}).get("median_diff_pct")
+            band: (
+                compare_mint_band(
+                    (rows.get(band) or {}).get("median_diff_pct")
+                )
+                if band in rows
+                else {
+                    "defined": False,
+                    "undefined_reason": "the band is absent from the record",
+                }
             )
             for band in MINT_BANDS
         },
+        "unrecognized_band_keys": sorted(
+            str(key) for key in rows if key not in MINT_BANDS
+        ),
         "memo_items": {
             band: {
                 field: (rows.get(band) or {}).get(field)
@@ -1206,10 +1291,12 @@ def compare_cost_row(
         }
     statistics = row.get("statistics") or {}
     p = model_summary(statistics.get("P"), "P")
+    refusals = _row_refusals(row)
     ratio = model_summary(statistics.get(RATIO_OF_MEANS), RATIO_OF_MEANS)
     n, n_model = nulls["N"]["value"], nulls["N_model"]["value"]
     output = {
         "status": row.get("status"),
+        **refusals,
         "timing": ROW_TIMING[row_id],
         "model": {
             "P": p,
@@ -1238,9 +1325,25 @@ def compare_cost_row(
         block["oasi_di_split"] = split_block(comparator, output["model"])
         output["comparators"][name] = block
     gate = oact.get("precision_gate") or {}
-    output["primary_comparator"] = gate.get("primary")
-    output["primary_reason"] = gate.get("branch")
+    if oact.get("defined"):
+        output["primary_comparator"] = gate.get("primary")
+        output["primary_reason"] = gate.get("branch")
+    else:
+        output["primary_comparator"] = "PWBM"
+        output["primary_reason"] = (
+            f"OACT undefined ({oact.get('undefined_reason')}); PWBM primary; "
+            "both are report-only under d658"
+        )
     return output
+
+
+def _row_refusals(row: dict) -> dict[str, Any]:
+    """The artifact row's refusals, carried into the comparison."""
+
+    return {
+        "refusals": row.get("refusals") or [],
+        "tabulation_refusal": row.get("tabulation_refusal"),
+    }
 
 
 def compare_mint_row(
@@ -1258,6 +1361,7 @@ def compare_mint_row(
     null_value = nulls[null_name]["value"]
     output = {
         "status": row.get("status"),
+        **_row_refusals(row),
         "timing": ROW_TIMING[row_id],
         "null": null_name,
         "headline_statistics": mint.get("headline_statistics", []),
@@ -1289,11 +1393,13 @@ def compare_mint_row(
             block = comparison_block(
                 model, registered, "interval", null_value, null_name
             )
-            block["role"] = (
-                "headline"
-                if statistic in mint.get("headline_statistics", [])
-                else "beside"
-            )
+            headline = mint.get("headline_statistics", [])
+            if statistic in headline:
+                block["role"] = "headline"
+            elif not headline and statistic in mint.get("compared_beside", []):
+                block["role"] = "compared, no headline"
+            else:
+                block["role"] = "beside"
             block[f"model_minus_{null_name}"] = (
                 model["mean"] - null_value
                 if model["mean"] is not None and null_value is not None
@@ -1336,6 +1442,11 @@ def compare(
             f"record schema {record.get('schema_version')!r} is not "
             f"{RECORD_SCHEMA}"
         )
+    if record.get("producer") != RECORD_PRODUCER:
+        raise RecordError(
+            f"record producer {record.get('producer')!r} is not "
+            f"{RECORD_PRODUCER!r}; only the reconciled record is compared"
+        )
     nulls = null_values(artifact)
     oact, pwbm, mint = (
         compare_oact(record),
@@ -1373,10 +1484,42 @@ def compare(
             and nulls["N_model"]["value"] is not None
             else None
         ),
+        "identity_checks": identity_checks(oact, pwbm, mint),
+        "labels": artifact.get("labels"),
         "comparators": {"OACT": oact, "PWBM": pwbm, "MINT5": mint},
         "rows": output_rows,
         "no_pass_band": True,
         "verdict": None,
+    }
+
+
+def identity_checks(oact: dict, pwbm: dict, mint: dict) -> dict[str, Any]:
+    """Every recorded match flag; reported, never substituted."""
+
+    checks = {
+        "oact_footer_matches_registration": oact.get(
+            "footer_matches_registration"
+        ),
+        "oact_footer_contains_registered_string": oact.get(
+            "footer_contains_registered_string"
+        ),
+        "oact_provision_text_matches_registration": oact.get(
+            "provision_text_matches_registration"
+        ),
+        "oact_row_label_is_2030": oact.get("row_label_is_2030"),
+        "pwbm_last_modified_matches_registration": pwbm.get(
+            "last_modified_matches_registration"
+        ),
+        "pwbm_row_year_is_2030": pwbm.get("row_year_is_2030"),
+        "mint_median_type_recognized": mint.get("median_type_recognized"),
+        "mint_no_unrecognized_band_keys": not mint.get(
+            "unrecognized_band_keys"
+        ),
+    }
+    return {
+        **checks,
+        "all_true": all(value is True for value in checks.values()),
+        "failed": sorted(k for k, v in checks.items() if v is not True),
     }
 
 
@@ -1416,6 +1559,11 @@ def to_json(value: Any) -> Any:
         return render(value)
     if isinstance(value, Decimal):
         return render(Fraction(value))
+    if _is_interval(value):
+        return {
+            "lo": render(Fraction(value["lo"]), ROUND_FLOOR),
+            "hi": render(Fraction(value["hi"]), ROUND_CEILING),
+        }
     if isinstance(value, dict):
         return {str(k): to_json(v) for k, v in value.items()}
     if isinstance(value, list | tuple):
@@ -1425,11 +1573,21 @@ def to_json(value: Any) -> Any:
     return value
 
 
+def _is_interval(value: Any) -> bool:
+    return (
+        isinstance(value, dict)
+        and set(value) == {"lo", "hi"}
+        and all(isinstance(v, Fraction | Decimal) for v in value.values())
+    )
+
+
 def _show(value: Any) -> str:
     if value is None:
         return "undefined"
-    if isinstance(value, dict) and set(value) == {"lo", "hi"}:
-        return f"[{_show(value['lo'])}, {_show(value['hi'])}]"
+    if _is_interval(value):
+        lo = render(Fraction(value["lo"]), ROUND_FLOOR)
+        hi = render(Fraction(value["hi"]), ROUND_CEILING)
+        return f"[{lo}, {hi}]"
     if isinstance(value, Fraction | Decimal):
         return render(Fraction(value))
     return str(value)
@@ -1479,8 +1637,38 @@ def markdown(result: dict[str, Any]) -> str:
         f"(sidecar matches), data provenance `{artifact['data_provenance']}`"
         f", registered commit `{artifact['registered_commit']}`.",
         f"- Registration: {REGISTRATION_POINTER}.",
+        f"- Labels: {', '.join(map(str, result.get('labels') or []))}.",
         "- Report-only. No pass band and no verdict. Numbers are exact: a "
-        "terminating decimal in full, otherwise 20 significant digits.",
+        "terminating decimal in full, otherwise 20 significant digits "
+        "(interval ends rounded outward).",
+        "",
+    ]
+    checks = result["identity_checks"]
+    lines += [
+        "## Record identity",
+        "",
+        (
+            "All recorded identity checks hold."
+            if checks["all_true"]
+            else "**IDENTITY CHECK NOT MET: "
+            + ", ".join(checks["failed"])
+            + ". Reported, not substituted.**"
+        ),
+        "",
+        "| Check | Value |",
+        "|---|---|",
+    ]
+    lines += [
+        f"| {key} | {value} |"
+        for key, value in checks.items()
+        if key not in ("all_true", "failed")
+    ]
+    if not result["record_file"].get("is_registered_path", True):
+        lines += [
+            "",
+            f"**The record is not at the registered path {RECORD_RELATIVE}.**",
+        ]
+    lines += [
         "",
         "## Spec-only nulls (percent)",
         "",
@@ -1527,14 +1715,14 @@ def markdown(result: dict[str, Any]) -> str:
         "",
         "## Cost rows (percent; gaps in percentage points)",
         "",
-        "| Row | Comparator | Model mean | Draw SD | Floor | C interval | "
-        "P - C | N - C | P - N | P - N_model |",
-        "|---|---|---|---|---|---|---|---|---|---|",
+        "| Row | Status | Comparator | Model mean | Draw SD | Floor | "
+        "C interval | P - C | N - C | P - N | P - N_model |",
+        "|---|---|---|---|---|---|---|---|---|---|---|",
     ]
     for row_id in COST_ROWS:
         row = result["rows"][row_id]
         if row.get("status") == "missing":
-            lines.append(f"| {row_id} | missing | | | | | | | | |")
+            lines.append(f"| {row_id} | missing | | | | | | | | | |")
             continue
         for name, block in row["comparators"].items():
             lines.append(
@@ -1542,6 +1730,7 @@ def markdown(result: dict[str, Any]) -> str:
                 + " | ".join(
                     [
                         row_id,
+                        str(row.get("status")),
                         name,
                         *_model_cells(row["model"]["P"]),
                         _show(block.get("comparator_interval")),
@@ -1559,14 +1748,14 @@ def markdown(result: dict[str, Any]) -> str:
         "",
         "## MINT5 rows (percent; gaps in percentage points)",
         "",
-        "| Row | Band | Statistic | Role | Model mean | Draw SD | Floor | "
-        "C interval | Stat - C | Null - C | Stat - null |",
-        "|---|---|---|---|---|---|---|---|---|---|---|",
+        "| Row | Status | Band | Statistic | Role | Model mean | Draw SD | "
+        "Floor | C interval | Stat - C | Null - C | Stat - null |",
+        "|---|---|---|---|---|---|---|---|---|---|---|---|",
     ]
     for row_id in MINT_ROWS:
         row = result["rows"][row_id]
         if row.get("status") == "missing":
-            lines.append(f"| {row_id} | missing | | | | | | | | | |")
+            lines.append(f"| {row_id} | missing | | | | | | | | | | |")
             continue
         null_name = row["null"]
         for band, entry in row["bands"].items():
@@ -1577,6 +1766,7 @@ def markdown(result: dict[str, Any]) -> str:
                     + " | ".join(
                         [
                             row_id,
+                            str(row.get("status")),
                             band,
                             statistic,
                             block["role"],
@@ -1628,6 +1818,23 @@ def markdown(result: dict[str, Any]) -> str:
         f"OACT {_memo_text(oact.get('memo_items'))}; "
         f"PWBM {_memo_text(pwbm.get('memo_items'))}.",
     ]
+    lines += ["", "## Refusals", ""]
+    refusal_lines = []
+    for row_id in (*COST_ROWS, *MINT_ROWS):
+        row = result["rows"][row_id]
+        for refusal in row.get("refusals") or []:
+            refusal_lines.append(
+                f"- {row_id}, draw {refusal.get('draw')}: "
+                f"{refusal.get('error_type', 'refused')}: "
+                f"{refusal.get('reason')}"
+            )
+        tabulation = row.get("tabulation_refusal")
+        if tabulation:
+            refusal_lines.append(
+                f"- {row_id}, tabulation: {tabulation.get('error_type')}: "
+                f"{tabulation.get('reason')}"
+            )
+    lines += refusal_lines or ["None."]
     lines += ["", "## Flags beside each comparison", ""]
     for name, comparator in (("OACT", oact), ("PWBM", pwbm)):
         timing = comparator.get("december_2030_timing") or {}
@@ -1657,16 +1864,43 @@ def run(
     record_path: Path | None = None,
     root: Path | None = None,
     allow_invented: bool = False,
+    expected_seal_sha256: str | None = None,
+    progress=None,
 ) -> dict[str, Any]:
-    """Verify, then compare. Nothing is written here."""
+    """Verify, then compare. Nothing is written here.
+
+    The seal is verified first. A registered comparison (no
+    ``allow_invented``) also requires the seal's own SHA-256 to equal
+    ``REGISTERED_SEAL_SHA256`` unless ``expected_seal_sha256`` names
+    another. The record is read once, its bytes checked against the seal,
+    and those same bytes parsed.
+    """
 
     seal = verify_seal(seal_path, root)
+    expected = expected_seal_sha256 or (
+        None if allow_invented else REGISTERED_SEAL_SHA256
+    )
+    if expected is not None and seal["sha256"] != expected:
+        raise SealError(
+            f"the seal's SHA-256 {seal['sha256']} is not the expected "
+            f"{expected}"
+        )
+    if progress is not None:
+        progress(f"seal SHA-256 {seal['sha256']} ({seal['n_files']} files)")
     record_path = Path(record_path or Path(seal["root"]) / RECORD_RELATIVE)
     record_file = verify_record_is_sealed(seal, record_path)
+    record_file["is_registered_path"] = record_file["path"] == RECORD_RELATIVE
     artifact, artifact_summary = verify_artifact(
         artifact_path, allow_invented=allow_invented
     )
-    record = load_json_exact(record_path.read_bytes())
+    raw = record_path.read_bytes()
+    sealed = seal["files"][record_file["path"]]
+    if sha256_bytes(raw) != sealed["sha256"] or len(raw) != sealed["bytes"]:
+        raise SealError(
+            "the comparator record's bytes changed after the seal was "
+            "verified"
+        )
+    record = load_json_exact(raw)
     if not isinstance(record, dict):
         raise RecordError("the comparator record is not a JSON object")
     result = compare(artifact, record)
@@ -1679,13 +1913,17 @@ def run(
             else REGISTERED_HEADER
         ),
         "registration_pointer": REGISTRATION_POINTER,
-        "seal": {k: v for k, v in seal.items() if k != "files"},
+        "seal": {
+            **{k: v for k, v in seal.items() if k != "files"},
+            "expected_sha256": expected,
+        },
         "record_file": record_file,
         "artifact": artifact_summary,
         **result,
         "number_format": (
             "exact rational arithmetic; a terminating decimal is written in "
-            "full, any other value to 20 significant digits (ROUND_HALF_EVEN)"
+            "full, any other value to 20 significant digits (ROUND_HALF_EVEN; "
+            "interval ends outward: ROUND_FLOOR low, ROUND_CEILING high)"
         ),
     }
 
@@ -1715,6 +1953,12 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--output-json", type=Path, required=True)
     parser.add_argument("--output-md", type=Path, required=True)
     parser.add_argument("--allow-invented", action="store_true")
+    parser.add_argument(
+        "--expect-seal-sha256",
+        default=None,
+        help="the seal's SHA-256 (default for a registered comparison: "
+        f"{REGISTERED_SEAL_SHA256})",
+    )
     args = parser.parse_args(argv)
     for path in (args.output_json, args.output_md):
         if path.exists():
@@ -1725,6 +1969,8 @@ def main(argv: list[str] | None = None) -> int:
         record_path=args.record,
         root=args.root,
         allow_invented=args.allow_invented,
+        expected_seal_sha256=args.expect_seal_sha256,
+        progress=print,
     )
     rendered = to_json(result)
     text = json.dumps(rendered, indent=2, allow_nan=False) + "\n"

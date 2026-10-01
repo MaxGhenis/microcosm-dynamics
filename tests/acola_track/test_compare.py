@@ -614,7 +614,14 @@ def test_exponent_notation_and_null_xlsx_are_handled():
     assert missing["reading_s"]["available"] is False
     assert missing["registered"]["branch"] == "html"
     unknown = cmp.compare_mint_band(mint_cell("-14.3", raw="-0.1", fmt=None))
-    assert unknown["reading_s"]["available"] is False
+    # A null format is not a percent format: the value is Decimal(s), whose
+    # units then cannot round to the display, so the HTML branch follows.
+    assert unknown["reading_s"]["number_format_recorded"] is False
+    assert unknown["reading_s"]["percent_format"] is False
+    assert unknown["reading_s"]["value_percent_units"] == Decimal("-0.1")
+    assert unknown["registered"]["branch"] == "html"
+    literal = cmp.compare_mint_band(mint_cell("-14.3", raw="-14.25", fmt=None))
+    assert literal["registered"]["branch"] == "xlsx"
 
 
 def test_reading_l_is_a_separate_sensitivity():
@@ -908,7 +915,8 @@ def test_main_writes_json_and_markdown_once(tmp_path, capsys):
     assert written["seal"]["sha256"] == seal_sha
     text = out_md.read_text()
     assert text.startswith("# " + cmp.INVENTED_HEADER)
-    assert "| C0 | OACT |" in text and "| M1 | 90+ |" in text
+    assert "| C0 | computed | OACT |" in text
+    assert "| M1 | computed | 90+ |" in text
     assert "C0-D: registered but deferred" in text
     with pytest.raises(SystemExit, match="one-shot"):
         cmp.main(argv)
@@ -960,3 +968,183 @@ def test_comparison_uses_no_constant_from_the_lane_records(tmp_path):
     assert c0["december_2030_timing"]["reading"].startswith("counts")
     band = result["rows"]["M0"]["bands"]["Total"]
     assert band["difference_of_weighted_medians_pct"]["role"] == "headline"
+
+
+# ---- review fixes: identity, provenance and reporting ---------------------
+
+
+def test_wrong_row_label_or_year_makes_the_comparator_undefined(tmp_path):
+    record = invented_record()
+    record["oact"]["row_label_verbatim"] = "2031"
+    record["pwbm"]["row_2030"]["year"] = "2029"
+    record["oact"]["footer_matches_registration"] = False
+    record["pwbm"]["last_modified_matches_registration"] = False
+    result = run_compare(tmp_path, record=record)
+    assert result["comparators"]["OACT"]["defined"] is False
+    assert result["comparators"]["PWBM"]["defined"] is False
+    checks = result["identity_checks"]
+    assert checks["all_true"] is False
+    assert {
+        "oact_footer_matches_registration",
+        "oact_row_label_is_2030",
+        "pwbm_last_modified_matches_registration",
+        "pwbm_row_year_is_2030",
+    } <= set(checks["failed"])
+    text = cmp.markdown(result)
+    assert "IDENTITY CHECK NOT MET" in text
+    assert "oact_footer_matches_registration | False" in text
+    c0 = result["rows"]["C0"]
+    assert c0["primary_comparator"] == "PWBM"
+    assert "OACT undefined" in c0["primary_reason"]
+
+
+def test_identity_checks_all_hold_on_a_consistent_record(tmp_path):
+    result = run_compare(tmp_path)
+    assert result["identity_checks"]["all_true"] is True
+    assert "All recorded identity checks hold." in cmp.markdown(result)
+
+
+def test_record_bytes_changed_after_seal_verification_are_refused(
+    tmp_path, monkeypatch
+):
+    seal_path = write_sealed(tmp_path)
+    record = seal_path.parent / "acola-comparator-20260930/reconciled.json"
+    original = cmp.verify_artifact
+
+    def tamper(*args, **kwargs):
+        changed = json.loads(record.read_text())
+        _column(changed, "proposal_cost_rate")["value"] = "99.00"
+        record.write_text(json.dumps(changed))
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr(cmp, "verify_artifact", tamper)
+    with pytest.raises(cmp.SealError, match="changed after the seal"):
+        cmp.run(
+            seal_path=seal_path,
+            artifact_path=write_artifact(tmp_path),
+            allow_invented=True,
+        )
+
+
+def test_a_single_transcription_is_never_the_compared_record(tmp_path):
+    record = invented_record(producer="transcriber_a")
+    with pytest.raises(cmp.RecordError, match="reconciled"):
+        run_compare(tmp_path, record=record)
+
+
+def test_a_sealed_record_off_the_registered_path_is_flagged(tmp_path):
+    other = "acola-comparator-20260930/other.json"
+    raw = json.dumps(invented_record()).encode()
+    seal_path = write_sealed(tmp_path, extra={other: raw})
+    result = cmp.run(
+        seal_path=seal_path,
+        artifact_path=write_artifact(tmp_path),
+        record_path=seal_path.parent / other,
+        allow_invented=True,
+    )
+    assert result["record_file"]["is_registered_path"] is False
+    assert "not at the registered path" in cmp.markdown(result)
+
+
+def test_registered_comparison_pins_the_recorded_seal_hash(tmp_path):
+    seal_path = write_sealed(tmp_path)
+    # INVENTED rows relabelled only to exercise the registered-run guard.
+    artifact = write_artifact(
+        tmp_path, invented_artifact(provenance="registered_real")
+    )
+    with pytest.raises(cmp.SealError, match="not the expected"):
+        cmp.run(seal_path=seal_path, artifact_path=artifact)
+    actual = hashlib.sha256(seal_path.read_bytes()).hexdigest()
+    result = cmp.run(
+        seal_path=seal_path,
+        artifact_path=artifact,
+        expected_seal_sha256=actual,
+    )
+    assert result["header"] == cmp.REGISTERED_HEADER
+    assert result["seal"]["expected_sha256"] == actual
+    with pytest.raises(cmp.SealError, match="not the expected"):
+        cmp.run(
+            seal_path=seal_path,
+            artifact_path=artifact,
+            allow_invented=True,
+            expected_seal_sha256="0" * 64,
+        )
+
+
+def test_refusals_status_and_labels_reach_both_outputs(tmp_path):
+    artifact = invented_artifact()
+    artifact["rows"]["C0"]["status"] = "refused"
+    artifact["rows"]["C0"]["refusals"] = [
+        {"draw": 3, "reason": "INVENTED REFUSE", "error_type": "ValueError"}
+    ]
+    artifact["rows"]["M2"]["tabulation_refusal"] = {
+        "reason": "INVENTED tabulation",
+        "error_type": "ColaTabulationError",
+    }
+    result = run_compare(tmp_path, artifact=artifact)
+    assert result["rows"]["C0"]["status"] == "refused"
+    assert result["rows"]["C0"]["refusals"][0]["reason"] == "INVENTED REFUSE"
+    assert result["rows"]["M2"]["tabulation_refusal"]["reason"] == (
+        "INVENTED tabulation"
+    )
+    text = cmp.markdown(result)
+    assert "| C0 | refused | OACT |" in text
+    assert "C0, draw 3: ValueError: INVENTED REFUSE" in text
+    assert "M2, tabulation: ColaTabulationError" in text
+    assert "INVENTED, report-only" in text
+
+
+def test_oact_string_count_alternative_is_guarded_at_every_corner():
+    record = invented_record()
+    _column(record, "proposal_cost_rate").update(value="0.6", decimals=2)
+    _column(record, "change_cost_rate").update(value="0.5", decimals=2)
+    result = cmp.compare_oact(record)
+    assert result["defined"] is True
+    alternative = result["alternative_interval_from_string_decimals"]
+    assert alternative["defined"] is False
+    assert "every corner" in alternative["undefined_reason"]
+
+
+@pytest.mark.parametrize("token", ["NaN", "Infinity", "-Infinity"])
+def test_non_finite_json_tokens_are_refused_at_load(token):
+    raw = '{"schema_version": "acola-comparator-v1", "x": ' + token + "}"
+    with pytest.raises(cmp.RecordError, match="non-finite"):
+        cmp.load_json_exact(raw.encode())
+
+
+def test_absent_null_and_unrecognized_band_keys_are_told_apart():
+    record = invented_record()
+    rows = record["mint5"]["table1"]["rows"]
+    rows["62\u201369"] = rows.pop("62-69")
+    rows["70-79"]["median_diff_pct"] = None
+    rows["80-89"]["median_diff_pct"]["html_value"] = None
+    mint = cmp.compare_mint(record)
+    assert mint["bands"]["62-69"]["undefined_reason"] == (
+        "the band is absent from the record"
+    )
+    assert mint["bands"]["70-79"]["undefined_reason"] == (
+        "median_diff_pct is null"
+    )
+    assert "HTML value is null" in mint["bands"]["80-89"]["undefined_reason"]
+    assert mint["unrecognized_band_keys"] == ["62\u201369"]
+
+
+def test_unsettled_median_type_compares_both_with_no_headline(tmp_path):
+    record = invented_record(**{"mint5.median_type": "unsettled"})
+    band = run_compare(tmp_path, record=record)["rows"]["M0"]["bands"]["Total"]
+    assert band["median_individual_pct_change"]["role"] == (
+        "compared, no headline"
+    )
+    assert band["difference_of_weighted_medians_pct"]["role"] == (
+        "compared, no headline"
+    )
+    assert band["ratio_of_scenario_means"]["role"] == "beside"
+
+
+@given(fractions, fractions)
+@settings(max_examples=200, deadline=None)
+def test_rendered_interval_ends_round_outward(a, b):
+    lo, hi = sorted((a / 7, b / 7))
+    shown = cmp.to_json({"interval": cmp.interval(lo, hi)})["interval"]
+    assert Fraction(Decimal(shown["lo"])) <= lo
+    assert Fraction(Decimal(shown["hi"])) >= hi
