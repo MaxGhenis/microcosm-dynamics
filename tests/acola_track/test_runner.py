@@ -222,7 +222,7 @@ def test_compare_reads_the_whole_invented_run_artifact(tmp_path, whole_result):
         assert total["model"]["mean"] is not None
         assert total["model_minus_comparator"] is not None
     json.dumps(cmp.to_json(result), allow_nan=False)
-    assert "| C1 | PWBM |" in cmp.markdown(result)
+    assert "| C1 | computed | PWBM |" in cmp.markdown(result)
 
 
 def test_projection_once_per_draw_with_shared_lookups_and_cache(monkeypatch):
@@ -342,6 +342,51 @@ def test_refused_row_is_published_with_every_null_statistic(monkeypatch):
     assert result["rows"]["M0"]["status"] == "computed"
     assert result["context_beneficiary_count"]["model_mean"] is None
     json.dumps(result, allow_nan=False)
+
+
+def test_tabulation_refusal_is_published_and_other_rows_survive(
+    monkeypatch,
+):
+    summarize = runner.summarize_mint
+    calls = []
+
+    def refusing(records, **options):
+        calls.append(1)
+        if len(calls) == 3:  # M2: MINT rows tabulate in registry order
+            raise runner.ColaTabulationError("INVENTED tabulation refusal")
+        return summarize(records, **options)
+
+    monkeypatch.setattr(runner, "summarize_mint", refusing)
+    result = runner.run_acola(_inputs(), config=CONFIG)
+    row = result["rows"]["M2"]
+    assert row["status"] == "refused"
+    assert row["tabulation_refusal"] == {
+        "reason": "INVENTED tabulation refusal",
+        "error_type": "ColaTabulationError",
+    }
+    assert "bands" not in row
+    assert row["row"]["row_id"] == "M2"
+    for row_id in ("C0", "C1", "M0", "M1", "M3", "M4"):
+        assert result["rows"][row_id]["status"] == "computed"
+    json.dumps(result, allow_nan=False)
+
+
+def test_every_registered_adjustment_is_named_on_the_output():
+    keys = {gap["key"] for gap in runner.GAPS}
+    assert {
+        "benefits_only_cost",
+        "closed_cohort",
+        "scheduled_vs_payable",
+        "baseline_vintage",
+        "di_and_auxiliaries",
+        "cola_timing",
+        "taxation_of_benefits",
+        "reform_only_auxiliary_excess",
+        "annual_convention_omissions",
+        "december_null",
+    } <= keys
+    for gap in runner.GAPS:
+        assert gap["description"] and gap["source"]
 
 
 def test_completed_draw_with_no_recipients_is_explicitly_undefined(

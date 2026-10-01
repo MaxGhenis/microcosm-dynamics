@@ -27,7 +27,10 @@ from populace_dynamics.cola_track_a.config import (
 from populace_dynamics.engine.di_entitlement import (
     fra_schedule_from_parameters,
 )
-from populace_dynamics.estimates.cola_age_profile import REGISTERED_REAL
+from populace_dynamics.estimates.cola_age_profile import (
+    REGISTERED_REAL,
+    ColaTabulationError,
+)
 
 from .config import (
     AUTHORIZATION,
@@ -139,6 +142,41 @@ GAPS = (
             "The model uses TR 2008 paths; OACT uses TR 2026, PWBM its "
             "own baseline and MINT5 TR 2008. N minus N_model records the "
             "COLA-rate vintage delta without adjusting any result."
+        ),
+        "source": "Registration 18 Adjustments",
+    },
+    {
+        "key": "scheduled_vs_payable",
+        "description": (
+            "2030 comes before depletion in both TR 2026 and PWBM's "
+            "baseline, so every comparison is on scheduled benefits; "
+            "MINT's column is vs Scheduled."
+        ),
+        "source": "Registration 18 Adjustments",
+    },
+    {
+        "key": "di_and_auxiliaries",
+        "description": (
+            "Children are absent. Disabled widow(er)s appear only in the "
+            "opening stock and are not projected."
+        ),
+        "source": "Registration 18 Adjustments",
+    },
+    {
+        "key": "cola_timing",
+        "description": (
+            "C0 counts the increases determined through 2029 and C1 those "
+            "through 2030, so C0 and C1 bracket either way a comparator "
+            "might time its 2030 cost. No adjustment applies."
+        ),
+        "source": "Registration 18 Adjustments",
+    },
+    {
+        "key": "taxation_of_benefits",
+        "description": (
+            "The test compares cost only, not the annual balance, which "
+            "nets the change in income. Comparator income-rate changes "
+            "are memo items."
         ),
         "source": "Registration 18 Adjustments",
     },
@@ -365,15 +403,33 @@ def run_acola(
                 entry["draw"]: entry["reason"] for entry in refusals[row_id]
             },
         }
-        if row.sub_row == "cost":
-            summary = summarize_cost(records[row_id], **options)
-        else:
-            summary = summarize_mint(
-                records[row_id],
-                reference_year=config.reference_year,
-                age_rule=row.age_rule,
-                **options,
-            )
+        try:
+            if row.sub_row == "cost":
+                summary = summarize_cost(records[row_id], **options)
+            else:
+                summary = summarize_mint(
+                    records[row_id],
+                    reference_year=config.reference_year,
+                    age_rule=row.age_rule,
+                    **options,
+                )
+        except ColaTabulationError as error:
+            # The legacy runner's pattern: a tabulation refusal is
+            # published as the row's status with its reason, so the one
+            # shot still writes every other row.
+            rows[row_id] = {
+                "status": "refused",
+                "labels": output_labels,
+                "row": row.as_dict(),
+                "benefit_counters": dict(sorted(counters[row_id].items())),
+                "refusals": refusals[row_id],
+                "tabulation_refusal": {
+                    "reason": str(error),
+                    "error_type": type(error).__name__,
+                },
+                "membership_note": MEMBERSHIP_NOTE,
+            }
+            continue
         status = "refused" if refusals[row_id] else "computed"
         _add_null_gaps(summary, row, nulls)
         rows[row_id] = {
