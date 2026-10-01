@@ -208,6 +208,11 @@ def test_post_review_sources_are_outside_historical_reducer_identity():
         Path("src/populace_dynamics/bridge/invented_population.py"),
         Path("src/populace_dynamics/bridge/population.py"),
         Path("src/populace_dynamics/bridge/population_summary.py"),
+        Path("src/populace_dynamics/acola_track/__init__.py"),
+        Path("src/populace_dynamics/acola_track/config.py"),
+        Path("src/populace_dynamics/acola_track/nulls.py"),
+        Path("src/populace_dynamics/acola_track/runner.py"),
+        Path("src/populace_dynamics/acola_track/statistics.py"),
     )
     assert reducer.POST_REVIEW_SHARED_SOURCE_BLOBS == {
         Path(
@@ -455,6 +460,18 @@ def test_post_review_exclusions_are_unreachable_from_birth_evidence():
     assert bridge_modules.isdisjoint(reachable), (
         "the opt-in PolicyEngine-US bridge became reachable from the "
         f"birth-evidence reducer: {sorted(bridge_modules & reachable)}"
+    )
+    acola_modules = {
+        "populace_dynamics.acola_track",
+        "populace_dynamics.acola_track.config",
+        "populace_dynamics.acola_track.nulls",
+        "populace_dynamics.acola_track.runner",
+        "populace_dynamics.acola_track.statistics",
+    }
+    assert acola_modules.issubset(module_paths)
+    assert acola_modules.isdisjoint(reachable), (
+        "the opt-in A-COLA package became reachable from the "
+        f"birth-evidence reducer: {sorted(acola_modules & reachable)}"
     )
     assert graph_exclusions.isdisjoint(reachable), (
         "opt-in graph modules became reachable from the birth-evidence "

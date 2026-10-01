@@ -342,6 +342,13 @@ POST_REVIEW_SOURCE_EXCLUSIONS = (
     Path("src/populace_dynamics/bridge/invented_population.py"),
     Path("src/populace_dynamics/bridge/population.py"),
     Path("src/populace_dynamics/bridge/population_summary.py"),
+    # The A-COLA trust fund test (Registration 18, decision d658) is an
+    # opt-in package; nothing in the historical projection imports it.
+    Path("src/populace_dynamics/acola_track/__init__.py"),
+    Path("src/populace_dynamics/acola_track/config.py"),
+    Path("src/populace_dynamics/acola_track/nulls.py"),
+    Path("src/populace_dynamics/acola_track/runner.py"),
+    Path("src/populace_dynamics/acola_track/statistics.py"),
 )
 POST_REVIEW_SHARED_SOURCE_BLOBS = {
     Path(
