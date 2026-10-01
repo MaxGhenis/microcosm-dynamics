@@ -27,6 +27,20 @@ curl first, then full Chrome request headers over HTTP/2 (gzip and
 deflate only), storing the decoded body.  Nothing else on the page is
 printed or stored.  The script refuses to overwrite an existing file.
 
+**How the committed snapshot was made.**  The files committed under
+``data/external/snapshots/tr2026_v_c1_vintage1/`` came from two fetches by
+stage 1's build lane on 2026-10-01, as the files themselves record: the
+fragment, its manifest line and ``capture_record.json`` from a fetch at
+15:01:44Z (page SHA-256 ``15cf3836…``, not stored); then V.C1's COLA
+timing footnote from a second fetch at 15:49:46Z (page SHA-256
+``6634c30c…``, not stored), written to ``cola_timing_note.txt`` with its own
+``timing_note_record.json`` and a second manifest line.  This revision
+does both from one fetch and embeds the footnote's record in
+``capture_record.json``, so a rerun into a new folder writes one retrieval
+time and no ``timing_note_record.json``.
+``populace_dynamics.acola_track.nulls`` validates the committed layout by
+its pinned hashes, not a rerun's.
+
 Usage::
 
     python scripts/capture_tr2026_v_c1.py [--output-dir DIR]

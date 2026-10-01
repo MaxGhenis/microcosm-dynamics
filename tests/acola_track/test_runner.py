@@ -262,7 +262,9 @@ def test_refused_row_is_published_with_every_null_statistic(monkeypatch):
     result = runner.run_acola(_inputs(), config=CONFIG)
     row = result["rows"]["C0"]
     assert row["status"] == "refused"
-    assert len(row["refusals"]) == 1
+    assert row["refusals"] == [
+        {"draw": 1, "reason": "INVENTED refusal", "error_type": "ValueError"}
+    ]
     successful, failed = row["per_draw"]
     assert successful["draw"] == 0
     assert successful["P"] < 0

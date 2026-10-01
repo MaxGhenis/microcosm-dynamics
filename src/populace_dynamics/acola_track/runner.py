@@ -336,8 +336,15 @@ def run_acola(
                         lookups=lookups,
                     )
                 except ValueError as error:
+                    # REFUSE and the emitter's membership guard raise
+                    # ValueError; the draw is published as refused, with
+                    # the exception's class and message, never dropped.
                     refusals[row_id].append(
-                        {"draw": draw, "reason": str(error)}
+                        {
+                            "draw": draw,
+                            "reason": str(error),
+                            "error_type": type(error).__name__,
+                        }
                     )
                     continue
                 for record in emitted:
