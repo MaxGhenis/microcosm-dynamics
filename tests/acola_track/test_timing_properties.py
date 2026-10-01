@@ -2,7 +2,9 @@
 
 import math
 from dataclasses import replace
+from fractions import Fraction
 
+import pandas as pd
 import pytest
 from hypothesis import given, settings
 from hypothesis import strategies as st
@@ -13,6 +15,7 @@ from populace_dynamics.cola_track_a.benefits import (
     BenefitContext,
     reference_benefit_rows,
 )
+from populace_dynamics.cola_track_a.opening import OpeningStockRecord
 from populace_dynamics.engine.rng import (
     ProjectionModule,
     ProjectionRNGRegistry,
@@ -79,6 +82,67 @@ def test_future_start_year_reaches_the_actual_legacy_emitter(
         and period is sb.BenefitPeriod.CALENDAR_YEAR
     ):
         assert rows[0]["benefit_base"] == rows[0]["benefit_reform"]
+
+
+@pytest.mark.parametrize("row_id", ["C0", "C1", "M0", "M1", "M2", "M3", "M4"])
+@pytest.mark.parametrize("clock", [1985, 2002, 2009, 2010])
+def test_opening_stock_carries_reduced_increases_from_the_registered_year(
+    row_id, clock
+):
+    """INVENTED opening-stock retiree on the frozen 2010 basis (d075).
+
+    The legacy opening-stock path scales the observed amount for reduced
+    increases determined before the 2010 opening year, then carries it on
+    the reformed path from payment year 2010. For a first reduced year of
+    2010 or later that scaling loop must be a no-op, and the person must
+    carry exactly the increases determined from the first reduced year
+    through the payment year minus one, whatever their pre-2010 clock.
+    """
+
+    birth = 1940
+    cohort, result = _handmade_cohort(
+        [_static(1, birth)],
+        {1: _career(40_000.0, birth)},
+        [_state(1, birth, 2030, marital_status="never_married")],
+        [_state(1, birth, 2010, marital_status="never_married")],
+    )
+    cohort.persons["opening_status"] = "retired_worker"
+    cohort.persons["ss_receipt_opening"] = pd.array([True], "boolean")
+    record = OpeningStockRecord(
+        person_id=1,
+        status="retired_worker",
+        component="retired_worker",
+        observed_annual_amount=12_000.0,
+        clock_year=clock,
+        clock_rule="INVENTED",
+        entitlement_year=clock,
+        entitlement_clamped=False,
+    )
+    cohort = replace(cohort, opening={1: record})
+    row = REGISTERED_ROWS[row_id]
+    baseline = invented_cola()
+    rows, counters = reference_benefit_rows(
+        result,
+        draw=0,
+        row=row.track_row(),
+        context=BenefitContext(
+            cohort,
+            invented_params(),
+            baseline,
+            ACOLAConfig(draw_indices=(0,)).track_a_config(),
+        ),
+    )
+    payment = sb.payment_year_for_reference(2030, row.benefit_period)
+    first = row.first_reduced_determination_year
+    assert counters["beneficiaries_opening_stock"] == 1
+    assert rows[0]["basis"] == "opening_stock"
+    assert rows[0]["reduced_increases"] == payment - first
+    expected = Fraction(1)
+    for year in range(first, payment):
+        c = Fraction(baseline.rate_for_determination_year(year))
+        expected *= (1 + c - Fraction(1, 100)) / (1 + c)
+    ratio = rows[0]["benefit_reform"] / rows[0]["benefit_base"]
+    assert ratio == pytest.approx(float(expected), rel=1e-12, abs=0)
 
 
 @given(
