@@ -168,6 +168,63 @@ def test_invented_whole_artifact_and_sidecar_only_in_temporary_directory(
                         assert summary["floor"]["undefined_reason"]
 
 
+def test_compare_reads_the_whole_invented_run_artifact(tmp_path, whole_result):
+    """compare_acola.py on the complete stage-1 dry-run artifact layout.
+
+    The comparator record and seal are INVENTED (tests/acola_track/
+    test_compare.py); the artifact is this module's 20-draw invented run.
+    """
+
+    from tests.acola_track.test_compare import (
+        cmp,
+        entry,
+        invented_record,
+        write_sealed,
+    )
+
+    artifact = {
+        "header": "INVENTED DATA - NOT A COMPARISON",
+        **whole_result,
+        "checks": {"invented_dry_run": True},
+        "run": {
+            "registration_pointer": REGISTRATION_POINTER,
+            "registered_commit": "a" * 40,
+            "git_head": "a" * 40,
+            "git_clean": True,
+            "command": "INVENTED DATA - pytest temporary-directory dry run",
+        },
+    }
+    output = tmp_path / "invented-run.json"
+    entry.write_artifact(output, artifact, {"python": "INVENTED"})
+    result = cmp.run(
+        seal_path=write_sealed(tmp_path, invented_record()),
+        artifact_path=output,
+        allow_invented=True,
+    )
+    assert result["header"] == cmp.INVENTED_HEADER
+    assert set(result["rows"]) == {*RUNNABLE_ROWS, "C0-D"}
+    assert result["rows"]["C0-D"]["status"] == "deferred"
+    for entry_ in result["nulls"].values():
+        assert entry_["recomputed_matches"] is True
+    for row_id in ("C0", "C1"):
+        row = result["rows"][row_id]
+        assert row["status"] == "computed"
+        assert row["model"]["P"]["mean"] is not None
+        assert row["model"]["P"]["floor"]["n_seeds"] is not None
+        for block in row["comparators"].values():
+            assert block["model_minus_comparator"] is not None
+            assert block["N_minus_comparator"] is not None
+    for row_id in ("M0", "M1", "M2", "M3", "M4"):
+        bands = result["rows"][row_id]["bands"]
+        assert set(bands) == {"Total", "62-69", "70-79", "80-89", "90+"}
+        total = bands["Total"]["median_individual_pct_change"]
+        assert total["role"] == "headline"
+        assert total["model"]["mean"] is not None
+        assert total["model_minus_comparator"] is not None
+    json.dumps(cmp.to_json(result), allow_nan=False)
+    assert "| C1 | PWBM |" in cmp.markdown(result)
+
+
 def test_projection_once_per_draw_with_shared_lookups_and_cache(monkeypatch):
     project = runner.legacy._project_population
     emitter = runner.reference_benefit_rows
