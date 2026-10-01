@@ -139,9 +139,12 @@ existing function had the registered rule, its semantics were kept.
    reason (A7's rule). A floor with fewer than two usable seeds is
    undefined, never zero, and lists the dropped seeds. A completed draw
    with no rows is undefined for that draw.
-7. **Refused draws.** A refusal is per row and draw. That draw's cell
-   keeps every key with a null value and the reason; other draws and
-   rows are kept; the row's status is "refused".
+7. **Refused draws and rows.** A refusal is per row and draw. That
+   draw's cell keeps every key with a null value, the reason and the
+   exception's class; other draws and rows are kept; the row's status is
+   "refused". A tabulation error from the A7 normalizer (no realistic
+   trigger is known) refuses that row only, under `tabulation_refusal`,
+   so the one shot still writes every other row.
 8. **Weights over the projection (ruling 12).** The artifact counts the
    persons alive in at least one 2030 draw whose weight differs between
    draws.
@@ -156,24 +159,50 @@ existing function had the registered rule, its semantics were kept.
     `not_registered` (ruling 8).
 12. **The TR 2026 column.** V.C1 prints a COLA column, so it is used
     directly (see below).
-13. **compare.py.** (a) The decimal counts that set the OACT and PWBM
-    half units come from the record's own counts, cross-checked against
-    the recorded strings; a disagreement is reported with the interval
-    the string count would give. (b) "Rounds to the displayed one" holds
-    when half-up (ties away from zero) or half-even rounding reproduces
-    the HTML value; both results are reported, and where they disagree
-    the branch each mode alone would give is reported too. (c) A percent
-    number format is one whose applicable section (chosen by the value's
-    sign) holds an unquoted, unescaped `%`; more than one `%` makes
-    reading S unavailable. (d) The decimal count under reading S is that
-    of the shortest form, so Python's `.0` on an integral double counts
-    as zero decimals (identical to the literal rule under a percent
-    format). (e) MINT values are used as printed; the record has no
-    sign-convention field. (f) The OASI and DI split is compared only
-    where the record flags it, and only from fields the record carries.
-    (g) A registered artifact must carry Registration 18's pointer and a
-    clean tree; an invented one needs `--allow-invented` and is labelled
-    INVENTED DATA.
+13. **compare.py.**
+    - (a) The decimal counts that set the OACT and PWBM half units come
+      from the record's own counts, cross-checked against the recorded
+      strings; a disagreement is reported with the interval the string
+      count would give (itself undefined unless p − d > 0 at every
+      corner).
+    - (b) "Rounds to the displayed one" holds when half-up (ties away
+      from zero) or half-even rounding reproduces the HTML value; both
+      results are reported, and where they disagree the branch each mode
+      alone would give is reported too.
+    - (c) A percent number format is one whose applicable section (chosen
+      by the value's sign) holds an unquoted, unescaped `%`; more than one
+      `%` makes reading S unavailable. A null number format is read
+      literally as not a percent format, so the value is `Decimal(s)`; if
+      its units differ from the display's it cannot round to the display
+      and the HTML branch follows.
+    - (d) The decimal count under reading S is that of the shortest form,
+      so Python's `.0` on an integral double counts as zero decimals
+      (identical to the literal rule under a percent format).
+    - (e) MINT values are used as printed; the record has no
+      sign-convention field.
+    - (f) Under an "unsettled" median type, both medians are labelled
+      "compared, no headline"; the ratio of means is "beside" in every
+      case.
+    - (g) The precision gate is applied to the printed p and d. When OACT
+      is undefined for any reason, PWBM is reported as primary (both are
+      report-only under d658).
+    - (h) The OASI and DI split is compared only where the record flags
+      it, and only from fields the record carries.
+    - (i) A recorded OACT row label or PWBM year other than 2030 makes
+      that comparator undefined. The other recorded match flags (footer,
+      provision text, `Last-Modified`, MINT median type and band keys)
+      are collected in `identity_checks`, reported and never substituted.
+    - (j) Only the record whose producer is "reconciled" is compared, and
+      it is read once and checked against its seal entry before parsing.
+      A registered comparison also requires the seal's own SHA-256 to be
+      the one `EV/RESTRICTED-FILES.md` records, unless
+      `--expect-seal-sha256` names another.
+    - (k) A registered artifact must carry Registration 18's pointer and
+      a clean tree; an invented one needs `--allow-invented` and is
+      labelled INVENTED DATA.
+    - (l) Numbers are exact rationals. A terminating decimal is written
+      in full, any other to 20 significant digits, with interval ends
+      rounded outward so the written interval contains the exact one.
 
 ## Invariants and their tests
 
@@ -340,6 +369,9 @@ Each is in the artifact's `gaps` list; none changes a number.
   note; ruling 15).
 - **Closed cohort.** No one under 50 in 2030, no post-2010 immigrants or
   earnings, no children; disabled widow(er)s only from the opening stock.
+- **Scheduled versus payable, DI and auxiliaries, COLA timing, taxation
+  of benefits.** Each of Registration 18's remaining adjustments has its
+  own entry, with REG's text and source.
 - **Benefits-only cost.** P covers scheduled benefits only; the
   comparators' cost definitions and dilution are reported by
   `compare_acola.py`.
