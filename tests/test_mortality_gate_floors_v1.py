@@ -78,7 +78,7 @@ GATE_V1_COMMITTED = (
 #: PRE-LOCK MARKER (referee A addition (iii)). False until the commit
 #: that inserts the gate_mortality block flips it -- in every file the
 #: artifact's flip_plan names, in the same commit.
-GATE_MORTALITY_BLOCK_LANDED = False
+GATE_MORTALITY_BLOCK_LANDED = True
 
 T_MAX = math.log(1.5)
 CELLS_GATED = ["75-84|female", "75-84|male", "85+|female", "85+|male"]

@@ -5894,3 +5894,766 @@ gates:
           threshold movement vs the ratified frozen floor: the flip READS
           runs/m6_holdout_floors_v3.json and rewrites nothing. Bindings go
           LOCKED-HOT (tests/test_gate_m6_derivations.py).
+  gate_mortality:
+    # LOCKED (simulation): ratified block; see history[0].
+    id: mortality_differential
+    status: locked
+    locked: true
+    kind: anchor_based
+    covers: >-
+      the DIFFERENTIAL-MORTALITY module (issue #74 Phase B): the person-
+      disjoint 50/50 half-split REPRODUCTION of the weighted PSID central
+      death rate m(age band x sex) = sum(w * death) / sum(w * exposure) on
+      the person-interval exposure of the demographic panel, on the
+      declared weight universe (CORE/IMM INDIVIDUAL CROSS-SECTION WT,
+      interval start waves 1997-2021; intervals ending by 2023), under the
+      pinned narrow-midpoint ascertainment convention and the declared
+      censoring rule, in 4 internal cells
+      ({75-84, 85+} x {male, female}), plus RULED the age-gradient SHAPE
+      anchors over 55+ per sex. The gate is ANCHOR-BASED (gate_m4 style):
+      the PSID mortality UNDERCOUNT (median PSID/NCHS ratio 0.760 on the
+      declared universe) forbids gating a PSID LEVEL against an NCHS
+      LEVEL, so the external-facing surface is concept-bridged SHAPE and
+      DOMINANCE only; the undercount does NOT touch a candidate-vs-PSID
+      REPRODUCTION cell, so the half-split floor gates the reproduction
+      cells directly (the gate_m4 finding-1 principle). The scored surface
+      is EXACTLY the cells enumerated in internal_surface + anchor_surface;
+      no external mortality LEVEL is gated anywhere. A PASS certifies
+      NOTHING about mortality DRIFT, NOTHING about mortality LEVELS against
+      NCHS, NOTHING about SURVIVAL TO CLAIMING AGES (R8 -- DEFERRED) and
+      NOTHING about the 25-74 cells, at this same prominence (see
+      not_certified). The gated hazard is the INTERVIEW-CONDITIONAL PSID
+      hazard, not a population hazard.
+    # ---- the negative surface, at covers prominence (gate_m6 amendment-1
+    # candor standard). Any PASS statement must carry each margin below at
+    # the same prominence as its headline claim.
+    not_certified:
+      - margin: mortality_drift
+        detail: >-
+          A PASS certifies NOTHING about mortality DRIFT.
+          gate_m6.not_certified[0].detail (margin mortality_drift; cited by
+          key path, never by live line number) stands: that is gate_m6's
+          TEMPORAL-HOLDOUT drift surface; this is the person-disjoint
+          REPRODUCTION surface on a different event base. Nothing here
+          weakens it.
+      - margin: mortality_levels_against_nchs
+        detail: >-
+          A PASS certifies NOTHING about mortality LEVELS against NCHS. Every
+          PSID/NCHS ratio is below 1 in every window (0.360-0.865, median
+          0.760); it is the truth's undercount, REPORTED never gated
+          (gate_m6.deliverables.ssa_nchs_life_table_mortality_anchor.gating:
+          '|ln|-gating external mortality LEVELS stays REJECTED'). A
+          candidate that reproduces PSID inherits the undercount.
+      - margin: survival_to_claiming_ages
+        detail: >-
+          SURVIVAL TO CLAIMING AGES (62 / FRA / 67), life expectancy at 65
+          and every survivorship STOCK are NOT CERTIFIED (packet R8 --
+          DEFERRED; v3 certification_scope.headline). No stock cell exists on
+          this floor basis; these are the quantities Social Security benefit
+          levels ride on, and a hazard gate at 75-84 / 85+ certifies almost
+          nothing about them.
+      - margin: cells_25_74
+        detail: >-
+          A PASS certifies NOTHING about the 25-74 cells: their k=3
+          tolerances exceed ln(1.5) (1.631 down to
+          0.408); the two 65-74 cells are seed-decided
+          (bootstrap P(clear) 0.443 male / 0.605 female at 100 seeds) and are
+          report-only whatever the R3/R4 rulings. The partition's edge is
+          seed-decided: over random 100-seed blocks of a 1,000-seed
+          diagnostic the 65-74 cells clear the cap with probability 0.52 /
+          0.14 and the 75-84 cells with 0.88 / 0.61; only the 85+ cells clear
+          robustly (0.99 / 1.00). The bound tolerances are the pre-registered
+          seeds' (0-99); their 1,000-seed counterparts are 0.375 / 0.398 /
+          0.344 / 0.269 (75-84|male / 75-84|female / 85+|male / 85+|female).
+          (Referee A ratifying round, sections 3 A(ii) and 4, report sha256
+          c38826343303ed32...: a diagnostic on the pinned frame, NOT a rebuild;
+          no floor number moves; substitution S3.)
+      - margin: conventions_and_the_undercount
+        detail: >-
+          The weight universe, the ascertainment convention and the censoring
+          rule bind BOTH SIDES of every score, and the undercount is part of
+          the truth both sides inherit; no PASS may describe the censoring as
+          innocuous. The ascertainment sensitivity band (lower end survival;
+          upper ends RESIDUE-LITERAL, informed and TRULY LITERAL) is the
+          disclosed uncertainty of the truth, never a second scoring rule.
+          Crediting known deaths after attrition would move the 85+ hazards by
+          +0.281 / +0.359 log (1.03x / 1.46x the k=3 tolerances); the gated hazard is
+          interview-conditional. The split-frame pin (protocol.split_frame_pin:
+          the full slice frame is split BEFORE any band or window restriction)
+          binds both sides in the same way, and one gated cell's eligibility
+          rides on it: 75-84|male's k=3 tolerance is 0.328 under the
+          pinned full-frame split and 0.408 under a 25-84-restricted split,
+          against the cap 0.4055 -- two 100-seed samples of one floor, so that
+          cell's eligibility is decided by the pre-registered sample (seeds
+          0-99 on the full frame), and any PASS statement carries that.
+      - margin: split_unit
+        detail: >-
+          The split is PERSON-DISJOINT (split_panel_by_person, gate_m4's
+          disability convention). It DIFFERS from gate_m6's HOUSEHOLD-DISJOINT
+          mortality family (gate_m6.split_units.household_disjoint_families);
+          no gate_m6 mortality statement transfers here and none from here
+          transfers to gate_m6.
+      - margin: sex_differential_rides_on_the_anchor
+        detail: >-
+          RULED Only sex_dominance.male_exceeds_female sees the sex
+          differential: every clearing cell's full-panel sex gap (75-84 0.321,
+          85+ 0.203) sits inside its own tolerance, so a sex-flat candidate
+          passes every internal cell (degenerate_candidates.c6_sex_flat). If
+          the anchor is demoted, the certification narrows to hazard
+          reproduction and the id is renamed mortality_reproduction. The
+          anchor's evidence-time conditions (holds on every half; margin >=
+          3 sigma) are met at the pre-registered 100 seeds (3.066 sigma
+          both_sides; no inversion) and NOT at 1,000 seeds (2.939 sigma; 10
+          of 2,000 halves invert; anchor_surface.cells
+          evidence_time_margin_at_1000_seeds); the candidate is tested on
+          the candidate-side condition of gate_rule only (the R5 ruling),
+          never on the evidence-time margin.
+    holdout_basis: [ind2023er_demographic_panel, ind2023er_death_file, nchs_life_tables_2023]
+    data_staged: >-
+      ind2023er is staged on disk (the demographic panel + ER32000 sex +
+      ER32050 year of death). The NCHS 2023 US period life tables are bundled
+      IN-REPO at data/external/nchs_life_tables_2023.json, sha-pinned
+      (af58c19ea205ad10ca7e4d0add0f6274d2165d23d402283b22ac0ff8e6398a68).
+      There is no staged holdout FILE; the holdout is the person-disjoint
+      side-A half of each split seed.
+    floor_run: runs/mortality_gate_floors_v1.json
+    floor_run_sha256: aa97e0e363ee9be7ec25fb5bad0b943e8371032573c9612e1b35d950accf1260
+    derived_from_floor: runs/mortality_floors_v3.json
+    derived_from_floor_sha256: 8998bca2d7026926cc44a199087810bc654863c12b2d14466ce0ff73f95e0776
+    lock_ceremony:
+      exists: true
+      completed_so_far:
+        - floors v2 (100 seeds; R2, R3 counts, R5 tables)
+        - floors v3 (R1, R6, R7 answered from bytes; the pinned convention)
+        - adversarial referees A (statistical) and B (contract and record)
+        - floors v4 (the record and binding defects fixed; no floor number moved)
+        - independent verification (VERIFIED -- READY FOR THRESHOLD BINDING)
+        - threshold binding (this draft; every ruling filed and priced)
+      required_before_lock:
+        - adversarial_referee_round_on_the_bound_thresholds
+        - the_rulings_R3_R4_R5_R9_R10_and_the_stability_clause_made_and_written_in
+        - verification_round
+        - ratifying_merge_with_the_GATE_MORTALITY_BLOCK_LANDED_flip
+    thresholds:
+      locked: true
+      status: locked
+      tranche_id: mortality_differential
+      kind: anchor_based
+      floor_run: runs/mortality_gate_floors_v1.json
+      floor_key: noise_floor_seeds_0_99
+      derived_from:
+        floor: runs/mortality_floors_v3.json
+        size_bytes: 2711564
+        sha256: 8998bca2d7026926cc44a199087810bc654863c12b2d14466ce0ff73f95e0776
+        block: internal_noise_floor.conventions.pinned_narrow_midpoint.universes.declared_1997_plus
+        rule: >-
+          every tolerance below == round(mean + 3 * sd, 3) over the 100
+          per-seed |ln(m_A / m_B)| values of that block (sd at ddof=1),
+          recomputed by tests/test_gates_derivations.py from the per-seed
+          record, never from a typed number; capped at T_max = ln(1.5).
+      external_anchor: data/external/nchs_life_tables_2023.json
+      estimand: >-
+        the weighted PSID central death rate m(band, sex) = sum(w * death) /
+        sum(w * exposure) over single-year person-interval exposure slices
+        (scripts/build_mortality_floors.build_exposure_slices on the pinned
+        death-record frame of scripts/build_mortality_floors_v3.py), on the
+        DECLARED weight universe (start waves 1997-2021). Per the standing
+        description_claims_exactly_the_scored_surface rule
+        (gate_2.governance.amendment_rules), the scored surface is EXACTLY
+        the enumerated cells -- NOT US mortality, NOT the NCHS life table, NOT
+        survival to any claiming age. The hazard is INTERVIEW-CONDITIONAL:
+        exposure ends at the last observed wave and deaths are counted only
+        in the one grid interval after it.
+      weight_universe:
+        declaration: >-
+          CORE/IMM INDIVIDUAL CROSS-SECTION WT, interval start waves
+          1997-2021 (the 2023 wave is the terminal grid wave and starts no
+          interval; every interval ends by 2023). The four PSID weight series
+          across the window are not one estimand (the 1993-1996 rung is
+          LONGITUDINAL; the 1997+ rung adds the IMMIGRANT sample); the 1997+
+          series carries 99.9037% of the weighted exposure and the pooled
+          all-window rate is the 1997+ rate to 0.000356 log units. The
+          all-window universe is report-only under every convention.
+        binds: >-
+          both sides of every score: truth and candidate are scored on start
+          waves 1997+ under the cross-section weight (v3
+          governance.weight_universe.binds).
+        v1_caveat_withdrawn: >-
+          runs/mortality_floors_v1.json exposure_construction.biennial_caveats
+          'older decades bias PSID UPWARD, against the undercount' is
+          WITHDRAWN with three measurements (v3
+          weight_universe.withdrawal_of_v1_caveat); it is not restated here.
+      death_ascertainment:
+        convention: pinned_narrow_midpoint
+        rule: >-
+          a range code lo-hi with span <= 2 years is assigned the death year
+          floor((lo + hi) / 2) and scored by the exact-year machinery
+          unchanged (200 of 293 range codes); the 93 wide codes and 12
+          NA-year deaths carry full exposure and zero deaths in the headline
+          floor and are published as a sensitivity band whose upper ends are
+          the informed end, the RESIDUE-LITERAL end (the 67-person residue
+          scored ignoring their ranges) and the TRULY LITERAL end (every one
+          of the 142 in-frame non-exact decedents the pinned rule does not
+          count). Measured: the pinned convention moves no k=3 tolerance by
+          more than 0.008 over the survival convention, the truly literal end
+          by no more than 0.006 over the pinned one (v3
+          death_ascertainment.measured_movement).
+        binds_both_sides: >-
+          the convention binds both sides of every score; a candidate that
+          ascertains deaths differently is scored on this frame's convention,
+          not its own, and the band is the disclosed uncertainty of the
+          truth, never a second scoring rule.
+      censoring:
+        rule: >-
+          exposure ends at a person's last observed wave; a death more than
+          one grid interval after that wave is never counted (v1 builder
+          docstring, item 1, quoted byte-for-byte in v3 governance.censoring).
+        assumption: >-
+          NON-INFORMATIVE NONRESPONSE conditional on band and sex.
+        evidence_against: >-
+          the PSID/NCHS ratios (0.360-0.865, median 0.760 on the declared
+          universe) and the attrition-by-age table (v3 governance.censoring
+          .evidence_against): death removes people from the panel between
+          waves, so nonresponse is informative for mortality by construction.
+        bracket_report_only: >-
+          crediting known deaths after attrition (referee A section 3.4,
+          recomputed in runs/mortality_gate_floors_v1.json
+          r4_85plus.item_2_sensitivity_of_85plus_to_the_censoring_convention)
+          moves every declared-universe hazard by +0.27 to +0.74 log and the
+          85+ hazards by +0.281 / +0.359 log (1.03x / 1.46x the k=3 tolerances). REPORT-ONLY;
+          gates nothing; it is the size of the level's dependence on the rule.
+      statistic: >-
+        Two families. INTERNAL (candidate-vs-PSID reproduction): per gated
+        cell |ln(mbar_candidate,s / m_A,s)| between the candidate's
+        mean-over-K=20-draws hazard for seed s's holdout half A and that
+        half's own empirical PSID hazard; tolerance = round(floor mean + 3 *
+        floor sd, 3) capped at T_max = ln(1.5), with a UNIFORM k = 3
+        (mortality declares no stock cell, so the gate_m4 MIXED-k split does
+        not arise; see k_selection). ANCHOR (concept-bridged SHAPE /
+        DOMINANCE): the candidate's own per-seed simulated invariant against
+        the committed real half-split sd of that invariant -- the candidate-
+        side condition is RULED; the evidence-time condition is that
+        the REAL floor holds the invariant on every half with margin >=
+        MARGIN_K = 3 sigma.
+      protocol:
+        option: >-
+          anchor-based, gate_m4 style. Internal cells use the person-disjoint
+          half-split, for which the half-vs-half floor is exactly the null.
+          Anchor cells use the candidate's own per-seed simulated invariant
+          against a margin fixed from the real half-split sd.
+        estimator: >-
+          mean-over-K=20-draws (tranche 2a amendment 1, ratified 2026-07-08,
+          PR 96), re-used VERBATIM. mbar_candidate,s is the MEAN over 20
+          pre-registered simulation draws of the cell HAZARD, scored ONCE per
+          cell as |ln(mbar / m_A)| -- NOT the mean of per-draw |ln| scores.
+        candidate_draws: 20
+        candidate_draw_stream: numpy.random.default_rng(7400 + k), k=0..K-1
+        draw_stream_base: 7400   # R9: DISTINCT from 5200 (2a/2b/2c/m4), 4200, 4100, 9100 / 9200 (W1), 91000, 20260710, the split seeds 0-99 and the gate seeds; proven in runs/mortality_gate_floors_v1.json draw_stream and bound by tests/test_gates_derivations.py
+        gate_seeds: [0, 1, 2, 3, 4]
+        floor_seeds: 0-99
+        split: >-
+          PERSON-DISJOINT 50/50 half-split
+          (populace_dynamics.harness.panel.split_panel_by_person,
+          fraction=0.5, seed=s) taken on the FULL exposure-slice frame,
+          before any band or window restriction. Side A is seed s's HOLDOUT;
+          side B is the fitting complement. NO person straddles the halves.
+        split_frame_pin:
+          # LOAD-BEARING (R10) as the PRE-REGISTERED SAMPLE: seeds 0-99 on
+          # the full frame define which 100 half-splits the floor is; any
+          # other frame or seed set is a different sample of the same floor,
+          # with se(T) ~ 0.025-0.03 per cell. Restricting the frame to 25-84
+          # BEFORE the split re-deals every person's side (per-seed
+          # correlation +0.08) and gives 75-84|male 0.408 where the pinned
+          # split gives 0.328: two samples of one floor (permutation
+          # p ~ 0.05; ten disjoint 100-seed blocks span 0.328-0.408;
+          # 1,000-seed T 0.375 full / 0.385 restricted), NOT an effect of the
+          # frame restriction on the estimand (the 75-84 slices are identical
+          # in both frames). The full-frame convention is the committed
+          # builder's and is pinned here; a perturbation test in
+          # tests/test_gates_derivations.py fails if the builder's
+          # split-then-window order changes. (Referee A ratifying round
+          # sections 4 and 8, substitution S1; the packet's v1-survival
+          # figures were 0.405 vs 0.335 against the cap 0.4055.)
+          frame: the full slice frame, all ages, all start waves, before band assignment and before the window
+          restricted_25_84_before_split_tolerance_75_84_male: 0.408
+          full_frame_before_split_tolerance_75_84_male: 0.328
+        candidate_scoring_frame: >-
+          (referee A, addition (i)) for gate seed s the candidate is HANDED the
+          side-A person-interval exposure table -- the pinned-convention
+          frame's slices whose person is drawn to side A, restricted AFTER the
+          split to start waves >= 1997: person_id, sex, start-wave weight,
+          age, band, start_wave and interval. It simulates, for each person-
+          interval in it, whether and in which slice the person dies; it may
+          add no person, interval or exposure and may carry no one past their
+          last observed wave. Deaths are counted INSIDE THOSE INTERVALS ONLY.
+          m_candidate,s = sum(w * d_sim) / sum(w * exposure_sim) over the same
+          slices, exposure_sim formed by the truth's rule (the simulated
+          death-year slice carries 0.5 and one death; later slices in that
+          interval carry nothing). The side-A person-id digests per gate seed
+          are in runs/mortality_gate_floors_v1.json
+          candidate_scoring_frame.per_gate_seed.
+        pad_row_exclusion: >-
+          the registered mortality-exposure adapter emits two INVENTED
+          age-coverage pad rows carrying person_id -1 (female) and -2 (male)
+          (PAD_IDENTITY_DISCLOSURE). They correspond to no PSID person, are
+          absent from the floor frame (min person_id 1001) and are EXCLUDED
+          from the scoring frame, from every exposure denominator and from
+          every scored cell. A run whose artifact does not evidence their
+          exclusion is INVALID.
+        conjunction: >-
+          seed passes iff EVERY gated cell holds (internal |ln| tolerance AND
+          anchor condition); the gate passes iff >= 4 of 5 gate seeds pass.
+          Report-only cells and all external LEVELS publish, never gate.
+        fresh_run_artifact_schema:
+          per_draw_per_cell_rates:
+            required: true
+            shape: [20, 4, 5]
+            rule: >-
+              commit every draw's per-cell hazard r[k, cell, s] so mbar
+              recomputes cell-by-cell and |ln(mbar / m_A)| is independently
+              auditable.
+          undefined_draw_rule:
+            required: true
+            pre_specified: true
+            rule: >-
+              if any gated cell's hazard is UNDEFINED on any draw (empty
+              simulated exposure denominator), the RUN IS INVALIDATED and must
+              be re-registered. No draw may be dropped, substituted or
+              re-rolled.
+          per_draw_dispersion_disclosure: { required: true, gated: false, report_only: true }
+          weight_universe_evidence:
+            required: true
+            rule: >-
+              the run must publish, per gated cell, the share of weighted
+              exposure and of unweighted deaths falling under each PSID weight
+              series, so a referee can see the declared universe was honoured.
+          scoring_frame_evidence:
+            required: true
+            rule: >-
+              the run must publish, per gate seed, the sha256 of the sorted
+              side-A person ids it scored on and its slice count, equal to
+              runs/mortality_gate_floors_v1.json candidate_scoring_frame
+              .per_gate_seed; a mismatch INVALIDATES the run.
+      power_cap:
+        t_max: ln(1.5)
+        rule: >-
+          an internal cell is gate-eligible iff its floor statistic is DEFINED
+          on every one of the 100 seeds AND RULED on the weaker
+          half of the worst seed is >= 20 AND its k=3 tolerance is <= T_max.
+          Both rules admit the same four cells today (unweighted min 86-155,
+          Kish 67.6-120.9); the partition under each is committed in
+          runs/mortality_gate_floors_v1.json eligibility_rules.
+        stability_clause: >-
+          RULED A(ii) (simulation): the partition is the pre-registered 100-seed sample's; REBUILD RULE: any rebuild decides the partition on 1,000 seeds. a cell whose bootstrap
+          P(T(k=3) <= T_max) at its own sigma at 100 seeds lies in [0.1, 0.9]
+          is REPORT-ONLY whatever its point tolerance. Today: 65-74|male 0.443
+          and 65-74|female 0.605 are in the band and already report-only; no
+          clearing cell is in it (nearest 75-84|female at 0.9456). Adopting
+          it changes nothing today and removes the flip risk on a rebuild.
+        aggregations: {}
+      k_selection:
+        rule: UNIFORM k = 3 (no stock family is declared); k pinned by the faithful-candidate OC against the 2a/2b/2c precedent band (the gate_m4 method)
+        chosen_k: 3
+        by_k:
+          "1": { n_cells_25_84: 7, p_gate_25_84: 0.029, n_cells_incl_85plus: 9, p_gate_incl_85plus: 0.0076 }
+          "2": { n_cells_25_84: 4, p_gate_25_84: 0.8196, n_cells_incl_85plus: 6, p_gate_incl_85plus: 0.6555 }
+          "3": { n_cells_25_84: 2, p_gate_25_84: 0.9975, n_cells_incl_85plus: 4, p_gate_incl_85plus: 0.9868 }
+          "4": { n_cells_25_84: 1, p_gate_25_84: 1.0, n_cells_incl_85plus: 3, p_gate_incl_85plus: 0.9997 }
+        precedent_oc_band: { gate_2a: 0.9685, gate_2b: 0.9678, gate_2c: 0.9641 }
+        rationale: >-
+          k=1 and k=2 collapse the faithful-candidate OC below the precedent
+          floor 0.9641 on both surfaces; k=4 drops 75-84|female and keeps only
+          three cells. k=3 is the only k that keeps the 75-84 pair and clears
+          precedent on both surfaces (0.9975 on 25-84 /
+          0.9868 with 85+). The same finding as gate_m4's,
+          reached on a different module.
+      faithful_candidate_oc:
+        method: independence-approx normal OC on the draw-noise-free half-normal basis (runs/m4_gate_floors_v1.json faithful_candidate_oc.method)
+        surface_4_cell_incl_85plus: { n_gated_internal_cells: 4, p_seed_pass: 0.9622, p_gate_pass_4_of_5: 0.9868 }
+        surface_2_cell_25_84: { n_gated_internal_cells: 2, p_seed_pass: 0.9841, p_gate_pass_4_of_5: 0.9975 }
+        binding_surface: surface_4_cell_incl_85plus
+        oc_vs_precedent: >-
+          both surfaces sit AT OR ABOVE the precedent band top 0.9685 (gate_m4
+          flip-note 2 wording: the band is a floor). The anchor cells add the
+          R5 term (anchor_surface.operating_characteristic), which under the
+          inherited candidate-side rule is NOT at or above precedent. At the
+          1,000-seed sigma (0.144 / 0.150 / 0.132 / 0.105) the same method
+          gives 0.936 (4 cells) / 0.990 (2 cells) at the bound tolerances;
+          conditional on the pre-registered gate seeds 0-4 a faithful
+          fitted-on-B candidate passes with 0.9998 / 1.0000 (draw noise only)
+          and 0.959 / 0.993 with a 0.05-log per-cell model error. (Referee A
+          ratifying round, sections 3 R4 and 8, substitution S4: the
+          precedent-band figure above is a property of the pre-registered
+          100-seed floor, not of the true noise floor; the conditional figure
+          is what governs the gate as it will actually run.)
+      internal_surface:
+        # Tolerances == round(mean + 3*sd, 3) on the 100 per-seed |ln| values
+        # of runs/mortality_floors_v3.json's headline block; machine-bound in
+        # tests/test_gates_derivations.py; the floor is READ, never rewritten.
+        floor_run: runs/mortality_gate_floors_v1.json
+        floor_key: noise_floor_seeds_0_99
+        views:
+          hazard_reproduction:
+            quantity_type: flow
+            gated: true
+            statistic: >-
+              per age band x sex weighted central death rate,
+              |ln(candidate / PSID)|.
+            tolerances:
+              "death.75-84|male": 0.328   # floor mean 0.10338, sd 0.07493, sigma 0.12746, T/sigma 2.573
+              "death.75-84|female": 0.382   # floor mean 0.10345, sd 0.09295, sigma 0.13876, T/sigma 2.753
+            derivations:
+              floor_run: runs/mortality_gate_floors_v1.json
+              floor_key: noise_floor_seeds_0_99
+              rules:
+                "death.75-84|male": { key: "75-84|male", k: 3, rounding: 3, quantity_type: flow }
+                "death.75-84|female": { key: "75-84|female", k: 3, rounding: 3, quantity_type: flow }
+          hazard_reproduction_85plus:
+            # RULED: gate_m6 partitions death.85+|{male,female} report-only
+            # under attrition_confounded_truth; the censoring bracket at 85+ is
+            # +0.281 / +0.359 log (1.03x / 1.46x the k=3 tolerances). Both cells clear the cap with room; admitting them
+            # takes the surface from 2 to 4 cells at OC 0.9868
+            # (from 0.9975) and is what catches the -25% level
+            # error and the external-levels candidate (degenerate_candidates).
+            quantity_type: flow
+            gated: true
+            status: locked
+            statistic: same statistic, the 85+ band
+            tolerances:
+              "death.85+|male": 0.274   # floor mean 0.08863, sd 0.06190, sigma 0.10793, T/sigma 2.539
+              "death.85+|female": 0.246   # floor mean 0.07987, sd 0.05539, sigma 0.09704, T/sigma 2.535
+            derivations:
+              floor_run: runs/mortality_gate_floors_v1.json
+              floor_key: noise_floor_seeds_0_99
+              rules:
+                "death.85+|male": { key: "85+|male", k: 3, rounding: 3, quantity_type: flow }
+                "death.85+|female": { key: "85+|female", k: 3, rounding: 3, quantity_type: flow }
+      anchor_surface:
+        # Concept-bridged SHAPE / DOMINANCE. Unit-honest bounded/ordinal
+        # invariants, NEVER |ln ratio| gates against an external LEVEL. The
+        # evidence-time condition (the REAL floor holds the invariant on every
+        # half with margin >= MARGIN_K x the real half-split sd) is a property
+        # of the floor; the CANDIDATE-side condition is the R5 ruling.
+        anchor_run: runs/mortality_gate_floors_v1.json
+        margin_k: 3
+        half_convention: both_sides
+        cells:
+          "sex_dominance.male_exceeds_female":
+            gated: true
+            statistic: >-
+              min over the contiguous bands {45-54, 55-64, 65-74} of
+              ln(m_male / m_female) exceeds 0; level-free.
+            real_full_panel_min: 0.31001
+            real_half_split_sd: { side_a: 0.09877, both_sides: 0.10111 }
+            margin_sigma_units: { side_a: 3.139, both_sides: 3.066 }
+            holds_on_every_real_half: { side_a: true, both_sides: true }
+            band_restriction_reason: >-
+              dominance inverts on 1 of 200 real halves at 35-44 (a B half) and
+              1 of 200 at 75-84; {45-54, 55-64, 65-74} is the widest contiguous
+              set with zero inversions under BOTH half conventions. The 5-band
+              set 25-34..65-74 holds on all 100 side-A halves (3.047 sigma) and
+              FAILS on the 200 (2.927 sigma, one inversion) -- the two
+              conventions select different sets, which is why the convention is
+              itself a ruling.
+            operating_characteristic:
+              # R5 (referee A section 4.5, recomputed): under gate_m4's inherited
+              # candidate-side rule (candidate margin >= 3 sigma) a FAITHFUL
+              # candidate passes this cell with the probabilities below.
+              inherited_rule_faithful_p_gate:
+                side_a_draw_noise_only: 0.5968
+                side_a_fitted_excluding_holdout: 0.2622
+                both_sides_draw_noise_only: 0.3653
+                both_sides_fitted_excluding_holdout: 0.2212
+              gate_m4_weakest_anchor_4_797_same_computation: 0.9854
+              remedies_priced:
+                a_bare_positivity_k0: { faithful_p_gate: 1.0, sex_flat_c6_p_gate: 0.1875 }
+                b_k1: { faithful_p_gate: 0.9954, sex_flat_c6_p_gate: 0.0032 }
+                b_k2: { faithful_p_gate: 0.8369, sex_flat_c6_p_gate: 0.0 }
+                c_demote_and_rename: the anchor is REPORTED; id -> mortality_reproduction; C6 becomes an uncaught degenerate of the whole gate
+              note: >-
+                (both_sides margin, fitted-excluding-holdout noise). More draws
+                do not cure the inherited rule: the fitted-model noise does not
+                shrink with K.
+            evidence_time_margin_at_1000_seeds:
+              # S6 (referee A ratifying round, section 3 R5 item 5 and section
+              # 8): a 1,000-seed DIAGNOSTIC on the pinned frame, disclosed
+              # beside the bound margin by A's report digest. It rebuilds
+              # nothing: margin_sigma_units above is the pre-registered
+              # 100-seed floor's and is what the bindings recompute. The
+              # three block counts are A's recompute_anchor_blocks.log (3
+              # blocks hold on every half; 4 have margin >= 3; 2 meet both).
+              source: referee A ratifying round, mortality-ratify-A/REPORT.md sha256 c38826343303ed32da6820500881274fb82b82474ac6f1499dab970d1b68c103, recompute_anchor_blocks.log (runs/mortality_gate_floors_v1.json anchor_operating_characteristic.evidence_time_margin_at_1000_seeds carries the same values)
+              both_sides_sd_2000_halves: 0.1055
+              margin_sigma_units: 2.939
+              inverting_halves_of_2000: 10
+              disjoint_100_seed_blocks_holding_on_every_half: "3 of 10"
+              disjoint_100_seed_blocks_with_margin_ge_3_sigma: "4 of 10"
+              disjoint_100_seed_blocks_meeting_both_conditions: "2 of 10"
+              p_eligible_random_100_seed_block_both_sides: 0.20
+              reading: >-
+                the evidence-time conditions (holds on every half; margin >=
+                MARGIN_K = 3 sigma) are met at the pre-registered 100 seeds
+                (3.066 sigma both_sides; no inversion) and NOT at 1,000 seeds
+                (2.939 sigma; 10 of 2,000 halves invert); the committed block
+                0-99 is one of the two disjoint blocks meeting both. The
+                candidate is tested on gate_rule.candidate_condition only,
+                never on this margin; any rebuild re-evaluates eligibility on
+                the rebuilt floor under the ruled convention (A(ii)).
+            gate_rule:
+              candidate_condition: "RULED R5 (b): the candidate's per-gate-seed statistic > K x real_half_split_sd with K = 1 (both_sides), a stated candidate-side deviation from MARGIN_K = 3; gate passes iff >= 4 of 5 gate seeds. This is the ONLY thing a candidate must satisfy."
+              evidence_time_conditions: >-
+                flip-note 3 (gate_m4): 'holds on every real half' and 'margin
+                >= MARGIN_K = 3 x the real half-split sd' are properties of the
+                REAL floor established at floor-build time under the ruled half
+                convention; they set the cell's gate-eligibility and are NOT
+                re-checked on the candidate.
+            anchor_corroboration: >-
+              the NCHS 2023 table's male rate exceeds the female rate in every
+              band -- a CONSTANT of the sha-pinned reference; it corroborates
+              the choice of invariant and constrains no candidate.
+            unique_catch: >-
+              this is the ONLY gated cell that sees the sex differential
+              (degenerate_candidates.c6_sex_flat). Removing it removes
+              differential mortality from a differential-mortality gate.
+          "age_gradient.comonotone|male":
+            gated: true
+            statistic: >-
+              the weighted hazard rises strictly across 55-64 < 65-74 < 75-84 <
+              85+, scored as the MIN ADJACENT LOG GAP over those bands.
+            real_full_panel_min_gap: 0.86666
+            real_half_split_sd: { side_a: 0.08672, both_sides: 0.08972 }
+            margin_sigma_units: { side_a: 9.993, both_sides: 9.659 }
+            holds_on_every_real_half: { side_a: true, both_sides: true }
+            band_restriction_reason: >-
+              the 25-34 -> 35-44 male gap INVERTS on 26 of 200 real halves, so
+              no band set reaching below 55-64 satisfies the evidence-time
+              condition for both sexes; 55+ is the widest set that does.
+            operating_characteristic_note: at ~10 sigma the inherited rule gives a faithful pass >= 0.999 under both noise models; the R5 question does not bite here.
+          "age_gradient.comonotone|female":
+            gated: true
+            statistic: same invariant, female
+            real_full_panel_min_gap: 0.86884
+            real_half_split_sd: { side_a: 0.08852, both_sides: 0.08915 }
+            margin_sigma_units: { side_a: 9.815, both_sides: 9.746 }
+            holds_on_every_real_half: { side_a: true, both_sides: true }
+      report_only:
+        # The 10 remaining band x sex cells, all by the machine reason
+        # tolerance_above_t_max at k=3 (the first reason in the v1/v2/v3
+        # precedence); the event criterion each would ALSO fail is noted.
+        # Set-bound to runs/mortality_gate_floors_v1.json gate_partition.report_only.
+        - "death.25-34|female"   # 1.631 ; tolerance_above_t_max; unweighted min 5, Kish 1.727
+        - "death.25-34|male"   # 0.944 ; tolerance_above_t_max; unweighted min 22, Kish 8.626
+        - "death.35-44|female"   # 1.010 ; tolerance_above_t_max; unweighted min 14, Kish 7.663
+        - "death.35-44|male"   # 0.843 ; tolerance_above_t_max; unweighted min 19, Kish 10.741
+        - "death.45-54|female"   # 0.825 ; tolerance_above_t_max; unweighted min 35, Kish 16.897
+        - "death.45-54|male"   # 0.541 ; tolerance_above_t_max; unweighted min 52, Kish 27.046
+        - "death.55-64|female"   # 0.665 ; tolerance_above_t_max; unweighted min 55, Kish 24.965
+        - "death.55-64|male"   # 0.577 ; tolerance_above_t_max; unweighted min 71, Kish 43.5
+        - "death.65-74|female"   # 0.408 ; tolerance_above_t_max; unweighted min 82, Kish 56.119
+        - "death.65-74|male"   # 0.418 ; tolerance_above_t_max; unweighted min 99, Kish 67.626
+      external_anchor_report:
+        reported_anchor_not_gated: true
+        anchor_pins:
+          "data/external/nchs_life_tables_2023.json":
+            sha256: af58c19ea205ad10ca7e4d0add0f6274d2165d23d402283b22ac0ff8e6398a68
+        concept_delta: >-
+          the PSID observes fewer deaths per person-year than the NCHS period
+          population in EVERY band x sex (declared universe, pinned
+          convention: ratios 0.360 to 0.865, median 0.760). Named deltas: (1)
+          censoring -- deaths are counted only in the one grid interval after
+          an observed wave, so an attriter who dies later is right-censored
+          and uncounted (the bracket above is its size); (2) death dating --
+          narrow range codes at the midpoint, the 105-person residue as
+          survival, the band disclosed; (3) weight universe -- start waves
+          1997-2021; (4) period -- interval deaths against a 2023 period
+          table. LEVELS are therefore NOT level-comparable and are report-only
+          with the delta named. The gate bridges only the level-invariant
+          SHAPE and DOMINANCE.
+        calibration: none -- the bridge names deltas and moves no floor value
+        circularity_disclosure: >-
+          engine.refit.fit_mortality_model (refit.py:1113-1115) computes
+          ratio = psid_rate / central_rate and then multiplies the external
+          central rate by that ratio, so the external rate CANCELS EXACTLY and
+          the fitted level is the PSID level (the function's own docstring,
+          :1066-1068; its result variable is named with the word this audit
+          forbids, and is not repeated here). The NCHS input contributes no
+          information to the fitted model. Any statement that the engine's
+          mortality is externally pinned to NCHS is false and must not appear
+          in a PASS statement. Compare
+          gate_m6.deliverables.ssa_nchs_life_table_mortality_anchor.circularity_disclosure,
+          which already discloses the same path circularity for the
+          report-only triangulation.
+      degenerate_candidates:
+        # R11 (runs/mortality_gate_floors_v1.json degenerate_candidates):
+        # full-panel scoring on the declared universe against the k=3
+        # tolerances is the NOISE-FREE CENTRE of teeth, not a bound (S2).
+        # Scored per seed on side A at the gate seeds 0-4 (seeds passing of
+        # 5; seed-pass rate over 0-99, from v3's per-seed hazards_side_a):
+        # 4-cell surface C1 3/5 (FAIL; rate 0.37), C4 1/5 (FAIL; rate 0.45), C5 0/5 (FAIL; rate 0.09), C6 4/5 (PASS; rate 0.49);
+        # 2-cell surface C1 4/5 (PASS; rate 0.84), C4 4/5 (PASS; rate 0.93), C5 4/5 (PASS; rate 0.66), C6 4/5 (PASS; rate 0.51).
+        c1_external_levels:
+          candidate: NCHS 2023 band rates used directly, no undercount adjustment
+          scores: { "75-84|female": 0.271, "75-84|male": 0.241, "85+|female": 0.250, "85+|male": 0.197 }
+          verdict_2_cell: PASS   # the 25-84 surface is nearly blind to the undercount
+          verdict_4_cell: FAIL   # only via 85+|female, 0.250 vs 0.246
+        c2_age_flat_within_sex:
+          scores: { "75-84|female": 1.255, "75-84|male": 1.498, "85+|female": 2.542, "85+|male": 2.667 }
+          verdict: FAIL on every surface -- the age gradient is decisively gated
+        c3_fully_flat:
+          scores: { "75-84|female": 1.217, "75-84|male": 1.538, "85+|female": 2.504, "85+|male": 2.708 }
+          verdict: FAIL on every surface
+        c4_uniform_level_plus_25pct:
+          score_every_cell: 0.223
+          verdict: >-
+            a known non-catch at the NOISE-FREE CENTRE -- PASSES every gated
+            internal cell on both surfaces at full-panel scoring, and no anchor
+            invariant sees a level; scored per seed on side A at the gate seeds
+            it fails 4 of 5 on the 4-cell surface by half-split noise
+            (seed-pass rate 0.45) and passes 4 of 5 on the 2-cell
+            surface (0.93) (S2).
+        c5_uniform_level_minus_25pct:
+          score_every_cell: 0.288
+          verdict: FAIL on the 4-cell surface (85+ cells only), PASS on the 2-cell surface -- the R4 ruling decides whether -25% is caught
+        c6_sex_flat:
+          candidate: both sexes assigned the female hazard
+          scores: { "75-84|female": 0.000, "75-84|male": 0.321, "85+|female": 0.000, "85+|male": 0.203 }
+          verdict_internal: KNOWN NON-CATCH of the internal surface -- PASSES every internal cell
+          caught_by: sex_dominance.male_exceeds_female
+          anchor_oc_beside_the_catch: >-
+            under the inherited 3-sigma candidate rule C6 is caught with
+            probability ~1 but the faithful candidate passes with only
+            0.2212; under bare positivity (a) the faithful candidate passes with
+            1.0 and C6 passes with 0.1875; under K=1 (b) the faithful
+            candidate passes with 0.9954 and C6 with 0.0032 (both_sides margin,
+            fitted-excluding-holdout noise). This is the anchor's unique catch
+            and the reason the k=3 internal surface alone must NEVER be
+            described as certifying differential mortality.
+        catch_structure: >-
+          age-flat and fully-flat hazards FAIL internally by a wide margin (scores 1.2-2.7 against tolerances 0.25-0.38) -- the age gradient is decisively gated; a uniform +25% LEVEL error PASSES every internal cell at the noise-free centre (a known non-catch there) and, scored per seed on side A, fails 4 of 5 gate seeds on the 4-cell surface by half-split noise (seed-pass rate 0.45); a uniform -25% level error is caught only by the 85+ cells (R4); external NCHS levels with no undercount adjustment pass the 2-cell surface and fail the 4-cell surface by 0.004 at 85+|female; a SEX-FLAT candidate PASSES every internal cell (known non-catch of the internal surface) and is caught ONLY by the sex-dominance anchor, whose own operating characteristic is the R5 ruling. The k=3 internal surface alone must NEVER be described as certifying differential mortality.
+      governance:
+        registration: >-
+          pre-registered on issue #42 like every gate-1 / gate-2 candidate. A
+          candidate registers its spec, its fitting exclusions (the seed-s
+          holdout persons), its draw seeds (7400 + k) and its declared
+          weight universe BEFORE scoring. Outer runs are one-shot.
+        candidate_scale: >-
+          PINNED to the seed-s holdout half (side A). The candidate simulates
+          exactly the persons and intervals of the scoring frame, fixing the
+          output scale the floor and the tolerances are measured at.
+        weight_definition: >-
+          every gated internal statistic is weighted by the START-WAVE
+          cross-sectional PSID weight of each exposure slice, from the
+          DECLARED universe only. The unweighted rate is reported alongside
+          and is never gated.
+        amendment_rules:
+          inherits: gate_1
+          no_self_rescue: >-
+            Inherited verbatim from gate_1.amendment_rules: no candidate's
+            committed run verdict changes under a rule proposed after that run;
+            a gate rule amendment applies only to runs registered after its
+            ratification.
+          amendments_only_via: >-
+            public proposal + adversarial referee round + verification +
+            maintainer ratification by merge.
+          description_claims_exactly_the_scored_surface: >-
+            bound by the standing rule promoted into
+            gate_2.governance.amendment_rules (amendment 2): covers /
+            holdout_basis / estimand claim EXACTLY the scored cells. No
+            national mortality level, no life expectancy, and no survival-to-
+            claiming statement may be headlined.
+          floor_seed_count:
+            rule: >-
+              a mortality floor supporting a lock carries >= 100 split seeds
+              (gate_m4 floor_seeds 0-99; gate_m6 [0, 99]); the 5-seed v1 floor
+              is retained as the pre-lock record and is never a derivation
+              basis. RULED A(ii): a rebuild may raise the partition decision to 1,000
+              seeds.
+          differential_claim_requires_the_anchor:
+            rule: >-
+              a PASS may be described as certifying DIFFERENTIAL mortality only
+              while sex_dominance.male_exceeds_female is a GATED cell. If that
+              cell is demoted (R5 remedy (c)), the certification narrows to
+              hazard reproduction in the gated bands plus the age-gradient
+              shape, the id becomes mortality_reproduction, and every PASS
+              statement says so at the same prominence as the headline claim.
+      certification_scope:
+        tranche: mortality_differential
+        headline: >-
+          SURVIVAL TO CLAIMING AGES IS NOT CERTIFIED BY THIS BASIS (packet R8
+          -- DEFERRED); THE GATED HAZARD IS THE INTERVIEW-CONDITIONAL PSID
+          HAZARD, NOT A POPULATION HAZARD (v3 certification_scope, carried).
+        certifies: >-
+          person-disjoint half-split REPRODUCTION of the weighted PSID central
+          death rate in the gated cells on the declared universe under the
+          pinned ascertainment and declared censoring conventions, RULED the age-gradient SHAPE over
+          55+, on generated panels scored on the side-A frame.
+        does_not_support:
+          - survival to age 62 / FRA / 67, life expectancy at 65, or any survivorship STOCK (R8 -- DEFERRED at headline prominence)
+          - national or population mortality LEVELS (the gated statistic reproduces a surface measured at a median 0.760 of the NCHS period rate)
+          - mortality DRIFT or projection (gate_m6.not_certified[0] stands)
+          - the 25-74 cells, mortality below 25, and the pre-1997 PSID weight universes
+          - that the censoring is innocuous or the hazard free of the undercount
+          - the differential (male > female) claim unless the sex-dominance anchor is GATED (R5)
+      ceremony_notes:
+        placeholders_the_ratifying_round_must_fill:
+          # COMPLETE CENSUS (referee B section 5.3, condition 3): every MARKED
+          # token by key path, and for each ruling's NON-proposed outcome every
+          # UNMARKED site it would also touch, so no outcome leaves an unnamed
+          # edit. Sites are named by key path, never by live line number.
+          - "RULED: the eligibility count (Kish effective PROPOSED | unweighted). MARKED: power_cap.rule (the 'RULED' clause). UNMARKED under either outcome: none (both rules admit the same four cells; the reason strings beside report_only are the Kish ones and stay)."
+          - "RULED: 85+ in the reproduction gate (4-cell surface, OC 0.9868) | out (2-cell, OC 0.9975). MARKED: the header comment; covers ('4' and '{75-84, 85+}'); internal_surface.views.hazard_reproduction_85plus (the '# RULED' comment and gated); protocol.fresh_run_artifact_schema.per_draw_per_cell_rates.shape; faithful_candidate_oc.binding_surface. UNMARKED under ADMIT: internal_surface.views.hazard_reproduction_85plus.status (derived_pending_ruling_R4 -> the ruled status; the pre-guarded post-flip assertion in tests/test_gates_derivations.py::test_gate_mortality_r4_evidence_is_report_only_and_recomputes forbids 'pending'). UNMARKED under EXCLUDE (a restructure, not a fill): report_only (10 -> 12 cells: add death.85+|male and death.85+|female with the reason excluded_by_ruling_R4 and their Kish counts); not_certified[cells_25_74] (margin name and detail must name 85+); certification_scope.does_not_support (add the 85+ cells); k_selection.rationale and degenerate_candidates (the 4-cell figures become report-only evidence); the fresh-run shape [20, 2, 5]; binding_surface -> surface_2_cell_25_84; and tests/test_gates_derivations.py::test_gate_mortality_partition_under_both_eligibility_rules reads r4_alternative_partition (pre-guarded: its post-flip form keys on the 85+ view's gated)."
+          - "RULED: the anchor's candidate-side rule ((a) bare positivity | (b) K in {1, 2}) | demotion (c) with the rename; the half convention (both_sides PROPOSED | side_a); the age-gradient companions' commissioning. MARKED: id (a comment token; the value is the edit under (c)); statistic (the candidate-side condition); anchor_surface.half_convention; anchor_surface.cells.sex_dominance.male_exceeds_female.gated and .gate_rule.candidate_condition (the pre-guarded post-flip assertion in tests/test_gates_derivations.py::test_gate_mortality_anchor_margins_and_operating_characteristic requires a bool gated that is True exactly while id == mortality_differential, tranche_id and certification_scope.tranche equal to id, and a candidate_condition stating the 4-of-5 gate-seed rule with no placeholder); the 'RULED' tokens on age_gradient.comonotone|male.gated and |female.gated; covers ('plus the sex-DOMINANCE anchor over 45-54..65-74 and'); certification_scope.certifies ('plus the sex DOMINANCE over 45-74 and'); not_certified[sex_differential_rides_on_the_anchor] (its leading token). UNMARKED under (c) DEMOTE: id -> mortality_reproduction; covers ('the DIFFERENTIAL-MORTALITY module'); thresholds.tranche_id; certification_scope.tranche; certification_scope.does_not_support (last item: the differential claim unsupported outright); anchor_surface.cells.sex_dominance.male_exceeds_female.unique_catch ('the ONLY gated cell' -> a REPORTED cell); degenerate_candidates.c6_sex_flat.caught_by (-> nothing gated) and .anchor_oc_beside_the_catch; degenerate_candidates.catch_structure ('caught ONLY by the sex-dominance anchor' -> uncaught by the whole gate); governance.amendment_rules.differential_claim_requires_the_anchor (fires); every PASS statement. UNMARKED under COMPANIONS REPORT-ONLY: covers ('the age-gradient SHAPE anchors over 55+ per sex'); certification_scope.certifies ('the age-gradient SHAPE over 55+'); governance.amendment_rules.differential_claim_requires_the_anchor.rule ('plus the age-gradient shape'); the artifact's gate_partition.n_gate_eligible 7 -> 5 is a record and is NOT rewritten (the artifact is not rebuilt at the flip)."
+          - "RULED: the stability clause | a 1,000-seed partition decision | neither as priced (referee A: keep the pre-registered basis, disclose the block evidence (S3, S4), pre-register a rebuild rule (S5); referee B: adopt the clause with its deal-dependence recorded and the 1,000-seed rebuild as the amendment path). MARKED: power_cap.stability_clause (its leading token) and governance.amendment_rules.floor_seed_count.rule ('RULED A(ii): a rebuild may raise ...'). The ruled power_cap.stability_clause must open 'RULED A(ii)' whichever option is taken (the pre-guarded post-flip assertion in tests/test_gates_derivations.py::test_gate_mortality_stability_clause_recomputes_from_v3_bootstrap reads that token and forbids a placeholder). UNMARKED under any outcome: none (not_certified[cells_25_74] already carries the 1,000-seed disclosure, S3)."
+          - "aa97e0e363ee9be7ec25fb5bad0b943e8371032573c9612e1b35d950accf1260: floor_run_sha256 = sha256 of runs/mortality_gate_floors_v1.json as ratified (the top-level key and the header comment)."
+          - "draw_stream_base 7400: PROPOSED here; enters gates.yaml only at the flip. UNMARKED: none in the block; both draw-stream tests exclude the gate's own base from the collision set once landed (pre-guarded)."
+          - "At the flip, independent of every ruling (referee B condition 3): the header comment (DRAFT lines 2-14) is rewritten as a lock header (also required by tests/test_gates_derivations.py::test_gate_mortality_draft_block_is_written_nowhere_else, which forbids the DRAFT opening bytes in gates.yaml); status -> locked (both levels); locked -> true (both); lock_ceremony.exists -> true with required_before_lock -> a completed record; a history[0] entry (gate_m4 shape) and thresholds.ceremony_record; ceremony_notes -> a past-tense record (placeholders_filled_at_ratification; this flip_plan as executed; the PR-body wording audit). The four gates.yaml line citations and no_self_rescue were already replaced (key paths; gate_m4's full sentence) at the pre-flip re-emission, as was the knife-edge sentence."
+        flip_plan: >-
+          (referee A addition (iii), COMPLETED at the pre-flip re-emission:
+          referee A ratifying round sections 5.4 and 8, referee B sections 7.3
+          and 8 condition 3; the full site table with each pre-flip and
+          post-flip form is runs/mortality_gate_floors_v1.json
+          flip_plan.assertion_sites.) The commit that inserts this block under
+          `gates:` (after gate_m6) flips GATE_MORTALITY_BLOCK_LANDED False ->
+          True in tests/test_mortality_floors_v2.py,
+          tests/test_mortality_floors_v3.py, tests/test_gates_derivations.py
+          and tests/test_mortality_gate_floors_v1.py IN THE SAME COMMIT, ONE
+          constant per file, no test deleted. Every assertion that reads the
+          LIVE block or the LIVE gates.yaml and depends on a placeholder or on
+          the block's presence is marker-guarded with its post-flip form beside
+          its pre-flip form: in tests/test_gates_derivations.py the block
+          source switch (_gate_mortality_block), the pre-lock guard
+          (test_gate_mortality_pre_lock_guard_or_live_block), the report-only
+          partition binding
+          (test_gate_mortality_partition_under_both_eligibility_rules),
+          binding_surface
+          (test_gate_mortality_faithful_oc_recomputes_on_both_surfaces), the
+          anchor cell's candidate_condition and gated
+          (test_gate_mortality_anchor_margins_and_operating_characteristic),
+          the draw-stream collision set and enumeration, which exclude the
+          gate's own base once landed
+          (test_gate_mortality_draw_stream_base_is_distinct_and_not_yet_live),
+          the stability-clause token
+          (test_gate_mortality_stability_clause_recomputes_from_v3_bootstrap)
+          and the 85+ view's gated
+          (test_gate_mortality_r4_evidence_is_report_only_and_recomputes); in
+          tests/test_mortality_gate_floors_v1.py the pre-lock guard
+          (test_gates_yaml_pre_lock_guard) and the draw-stream enumeration
+          (test_draw_stream_enumeration_matches_the_live_contract_and_is_distinct);
+          in the v2 and v3 files their pre-lock guards
+          (test_gates_yaml_pre_lock_guard). The two UNCONDITIONAL added-key
+          tolerance sets --
+          tests/test_gates_derivations.py::test_gate_m4_flip_leaves_locked_siblings_byte_identical
+          and
+          tests/test_gate_w1_derivations.py::test_gate_w1_flip_leaves_locked_siblings_byte_identical
+          -- admit {'gate_mortality'} while the flip PR is open (the flip
+          commit's only other test edit). The header comment of this block is
+          rewritten at the flip
+          (test_gate_mortality_draft_block_is_written_nowhere_else forbids the
+          DRAFT opening bytes in gates.yaml). The artifact is NOT rebuilt at
+          the flip and its fragment stays the DRAFT record; tier_counts.json
+          and README-tiers.md are re-refreshed by live collection.
+        wording_audit: >-
+          zero occurrences in this block of each of the three words the R12
+          audit forbids (runs/mortality_gate_floors_v1.json
+          wording_audit.forbidden_word_counts); the PR body is audited by the
+          verification round at PR time with the same list.

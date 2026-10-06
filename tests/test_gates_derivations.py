@@ -3963,6 +3963,7 @@ def test_gate_m4_flip_leaves_locked_siblings_byte_identical():
         {"gate_m4"},
         {"gate_w1"},
         {"gate_m6"},
+        {"gate_mortality"},
     ), added
     assert removed == set()
     for key in master:
@@ -4019,7 +4020,7 @@ MORTALITY_T_MAX = math.log(1.5)
 #: added-key tolerance in
 #: test_gate_m4_flip_leaves_locked_siblings_byte_identical admitting
 #: {"gate_mortality"} while the flip PR is open.
-GATE_MORTALITY_BLOCK_LANDED = False
+GATE_MORTALITY_BLOCK_LANDED = True
 
 
 def _mortality_floor() -> dict:
