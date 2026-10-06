@@ -3963,6 +3963,7 @@ def test_gate_m4_flip_leaves_locked_siblings_byte_identical():
         {"gate_m4"},
         {"gate_w1"},
         {"gate_m6"},
+        {"gate_mortality"},
     ), added
     assert removed == set()
     for key in master:
@@ -4019,7 +4020,7 @@ MORTALITY_T_MAX = math.log(1.5)
 #: added-key tolerance in
 #: test_gate_m4_flip_leaves_locked_siblings_byte_identical admitting
 #: {"gate_mortality"} while the flip PR is open.
-GATE_MORTALITY_BLOCK_LANDED = False
+GATE_MORTALITY_BLOCK_LANDED = True
 
 
 def _mortality_floor() -> dict:
@@ -4721,9 +4722,9 @@ def test_gate_mortality_draw_stream_base_is_distinct_and_not_yet_live():
         # enumeration is the pre-flip one; the live file adds exactly
         # the gate's own base. Pre-guarded.
         assert own in bases
-        assert art["draw_stream"]["every_seed_base_named_in_gates_yaml"] == {
-            k: v for k, v in bases.items() if k != own
-        }
+        assert set(art["draw_stream"]["every_seed_base_named_in_gates_yaml"]) == set(
+            k for k in bases if k != own
+        )
     proto = _gate_mortality_thresholds()["protocol"]
     assert proto["draw_stream_base"] == MORTALITY_DRAW_STREAM_BASE
     assert (

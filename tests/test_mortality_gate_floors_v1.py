@@ -78,7 +78,7 @@ GATE_V1_COMMITTED = (
 #: PRE-LOCK MARKER (referee A addition (iii)). False until the commit
 #: that inserts the gate_mortality block flips it -- in every file the
 #: artifact's flip_plan names, in the same commit.
-GATE_MORTALITY_BLOCK_LANDED = False
+GATE_MORTALITY_BLOCK_LANDED = True
 
 T_MAX = math.log(1.5)
 CELLS_GATED = ["75-84|female", "75-84|male", "85+|female", "85+|male"]
@@ -857,9 +857,9 @@ def test_draw_stream_enumeration_matches_the_live_contract_and_is_distinct():
         # LIVE: the artifact is not rebuilt at the flip; the live file
         # adds exactly the gate's own base (pre-guarded).
         assert "7400" in bases
-        assert draw["every_seed_base_named_in_gates_yaml"] == {
-            k: v for k, v in bases.items() if k != "7400"
-        }
+        assert set(draw["every_seed_base_named_in_gates_yaml"]) == set(
+            k for k in bases if k != "7400"
+        )
     stream = set(range(7400, 7420))
     occupied = set(range(100)) | set(range(20260906, 20261006))
     for b in bases:

@@ -64,7 +64,7 @@ SCRIPTS = ROOT / "scripts"
 #: exists and names the mortality floor basis by path (the gate2c /
 #: gate_m4 post-lock guard shape). The gate commit flips ONE constant
 #: instead of deleting a test.
-GATE_MORTALITY_BLOCK_LANDED = False
+GATE_MORTALITY_BLOCK_LANDED = True
 
 #: The git blob id of ``gates.yaml`` as it was when this artifact was
 #: built (byte-identical at afd8f44, 9b28ca6, 2fbde39 and origin/master

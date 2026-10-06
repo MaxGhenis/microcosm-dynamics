@@ -112,7 +112,7 @@ BUILT_ON = "2fbde39e2ca5be17552e601c9c9b4a96bf40ee33"
 #: exists and cites THIS artifact by path (the gate2c / gate_m4
 #: post-lock guard shape). The gate commit flips ONE constant instead of
 #: deleting a test.
-GATE_MORTALITY_BLOCK_LANDED = False
+GATE_MORTALITY_BLOCK_LANDED = True
 
 T_MAX = math.log(1.5)
 UNIVERSES = ("declared_1997_plus", "all_v1_comparable")
