@@ -3,8 +3,11 @@
 INVENTED DATA - NOT A COMPARISON
 
 This implements the D/S calculations and reporting of `a2-ratified-1` in new
-modules. Real structural execution is deliberately blocked by the unresolved
-§16.7 projection/weight-sum conflict described below. Outcome artifacts carry
+modules. [Max's d603 ruling, 2026-09-28](urban2010_track_a_v2_rulings.md)
+clarifies that the structural path may run the unchanged projection, including
+weighted DI transitions, while emitting only the frozen §16.7 counts and
+protocol/attempt metadata. Its separate frozen protocol and pre-execution
+record remain required. Outcome artifacts carry
 “registered, one-shot, post hoc, not blind”, “PSID-seeded closed cohort” and
 “Python oracle (not Axiom)”; invented artifacts additionally carry the heading
 above. The implemented matrix has 68 rows, with fixed D×R0 and D×F0 headlines.
@@ -20,6 +23,54 @@ and external engine files were hashed; the actual-engine examples refused
 on a changed provenance receipt before invoking Axiom. These existing
 source-fixture reads are disclosed below and in the ledger, rather than
 being represented as newly invented fixtures.
+
+## PR #483 follow-up: P2 and d603
+
+The review's P2 fix catches `Exception` and `KeyboardInterrupt` around each
+complete person body in both collectors. It attaches cumulative local
+counters and preserves any existing person attribution before re-raising.
+The d603 changes remove the unresolved-weight-arithmetic refusals, retain
+the frozen structural protocol and pre-execution interlocks, and strengthen
+the count-only output tests. The ratified specification and protected/v1
+production modules are unchanged.
+
+The interruption regression was first replayed against the original
+`2ad791e` benefit module, loaded in memory without changing the working
+files: **4 failed, 2 passed, 26 deselected in 170.17s**. Both `RuntimeError`
+and `KeyboardInterrupt` lost person 2's identity in each collector; the
+`ValueError` controls passed. The two invented retirees are born in 1960,
+claim in 2027 and each have `{1987: 840000}` earnings.
+
+Focused d603 validation completed with **71 passed, 12 warnings in
+2629.17s** across `test_protocol.py`, `test_structural.py` and
+`test_structural_inputs.py`. The warnings concern temporary-directory
+cleanup permissions. The end-to-end test executes twenty invented draws
+and all 400 calls through the unchanged weighted DI transition function.
+The generated-input property checks permitted keys and nonnegative integer
+count leaves. No real population was loaded or projected.
+
+The full requested command completed successfully:
+
+```sh
+OMP_NUM_THREADS=1 POLARS_MAX_THREADS=1 .venv/bin/python -m pytest \
+  tests/track_a_v2 tests/estimates/test_birth_evidence_artifact.py -q --tb=short
+```
+
+Result: **494 passed, 6 warnings in 2025.65s (0:33:45)**: 481 Track A v2
+tests and 13 birth-evidence tests. All warnings concern cleanup of an
+existing temporary directory whose ACL denies removal. The requested
+birth-evidence tests read their existing committed historical artifact;
+they do not load or project a real population.
+
+All pytest invocations use `OMP_NUM_THREADS=1 POLARS_MAX_THREADS=1`.
+Black and Ruff pass for the 33 Python files comprising the v2 package,
+scripts, tests and the requested birth-evidence test. The latter received
+only an assertion-formatting change.
+
+The requested `recount-tiers.py .` completed with 4,329 unit, 3,152 artifact,
+930 integration-PSID, 520 legacy-reproduction and 182 oracle tests: 9,113
+total. The 25 added tests are all in the unit tier. No real-data tests were
+executed by this collection-only recount.
 
 ## Files and contract map
 
@@ -148,9 +199,11 @@ It includes:
 12. §16.7 does not define count deduplication: D-unsupported, S-earlier-spell
     and opening proxies are distinct person-draw counts; ordering classes
     retain row/scenario detail. Units are explicit in structural output.
-13. §16.7 bars weight summaries. The structural entry uses the identical
-    engine/modules directly on invented inputs, omitting weighted diagnostics
-    in the v1 wrapper (`src/populace_dynamics/cola_track_a/runner.py:624`).
+13. [Max's d603 ruling](urban2010_track_a_v2_rulings.md) clarifies §16.7's
+    restriction as an output boundary. The structural entry uses the identical
+    engine/modules, including weighted DI transitions, omitting weighted
+    diagnostics in the v1 wrapper
+    (`src/populace_dynamics/cola_track_a/runner.py:624`).
     New input preparation also omits A3/A5 summaries
     (`src/populace_dynamics/cohorts/psid2010.py:1342`,
     `src/populace_dynamics/cohorts/psid2010.py:2166` and
@@ -158,8 +211,9 @@ It includes:
     select or copy observed amounts
     (`src/populace_dynamics/cohorts/psid2010.py:1638` and
     `src/populace_dynamics/cola_track_a/opening.py:364`); input preparation
-    calculates no scenario benefit. These changes do not remove weighted
-    arithmetic inside the engine; real structural execution remains blocked.
+    calculates no scenario benefit. Weighted arithmetic inside the engine is
+    unchanged. Real structural execution requires its own frozen protocol and
+    pre-execution record; development runs use invented inputs only.
 14. §17's complete invented fixture deliberately uses zero recovery to supply
     supported continuous spells. Separate intended violations exercise
     refusals; registered inputs are never changed to obtain completion.
@@ -224,26 +278,26 @@ run a real structural check or outcome exercise, publish CI evidence, recheck
 seals or produce a comparison memo. Those remain subsequent §17 prerequisites
 and are outside this invented-data implementation assignment.
 
-Construction of a runnable real-data structural projection path remains
-unfinished because the ratified text both requires the frozen projection and
-bars weight sums. The entry and count algorithms exist, but its real path is
-not ready for a later authorized run. That
-projection uses weighted expected-death aggregates to determine transition
-probabilities (`src/populace_dynamics/engine/di_entitlement.py:690–702`) and
-unconditionally computes diagnostic weight totals
-(`src/populace_dynamics/engine/di_entitlement.py:713`). Removing the
-former changes the projection. The question sent to Max asks whether necessary
-transition arithmetic is allowed while a new adapter removes diagnostic totals,
-or whether a specification amendment is required. Pending that ruling, the
-script refuses after protocol/hash preflight and before population loading
-(`scripts/track_a_v2_structural_count.py:49`). Direct structural input loading
-and real structural execution also refuse
-(`src/populace_dynamics/track_a_v2/protocol.py:330` and
-`src/populace_dynamics/track_a_v2/structural.py:394`). Preflight hash verification
-can read the frozen source files; no real preflight was executed in this job.
-There is no configurable bypass. Invented structural preparation/count
-functions, protocol binding and strict artifact-schema checks are implemented
-and tested. No silent exception to the weight-sum restriction was adopted.
+The original implementation refused structural execution pending a ruling on
+weighted projection arithmetic. [Max's d603 ruling, 2026-09-28](urban2010_track_a_v2_rulings.md)
+resolved that question: weighted transitions run unchanged, and the §16.7
+restriction applies to the pre-registration check's outputs. The script,
+loader and structural runner no longer impose that refusal. The projection's
+weighted expected-death aggregates and diagnostic totals remain unchanged
+(`src/populace_dynamics/engine/di_entitlement.py:690–717`); structural artifacts
+emit only D-unsupported histories, S ordering classes, S-refused earlier
+spells and opening-proxy applications, with protocol/attempt metadata.
+They emit no benefit amounts, weight sums, weighted totals or tabulations.
+The count-only output restriction does not prohibit registered weighted
+estimates or budget totals.
+
+The separate protocol/hash preflight, explicit authorization, input bindings
+and exclusive attempt record remain required before a real structural run.
+Preflight hash verification can read frozen source files; no real preflight,
+population load or structural execution was performed for the d603 change.
+Invented end-to-end projection and output-schema tests cover the newly
+reachable path. The validation and exposure records below describe the
+original implementation and are preserved as historical records.
 
 Final new-suite validation completed:
 
