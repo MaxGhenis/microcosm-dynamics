@@ -12,7 +12,11 @@ The diagnostic calls historical input builders, claim functions, benefit
 functions and model tabulators directly. It never calls a registered
 one-shot entry point. Each model's recorded code commit supplies its
 implementation, exported by a read-only, explicitly scoped `git archive`
-into `scratch/d1408/`. The policy parameter bytes are pinned separately.
+into `scratch/d1408/`. R7 uses its artifact's recorded build pin,
+`revision_pins.populace_dynamics_sha` = `a8704357`, fetched from GitHub;
+cost ordering uses the commit its own artifact records (`e86ec0c6`). The
+two are reconstructed separately, and neither borrows the other's
+computation. The policy parameter bytes are pinned separately.
 Original claim draws, expected claim distributions, payment rounding,
 old-age, disability and death bases remain the historical caller's.
 
@@ -53,6 +57,8 @@ denominators.
 | Positive pre-1917 credits | `unsupported_pre1917_credit_rate`; no statutory amount |
 | Fewer than ten underlying people | `<10` for the whole cell, including weights, shares and changes |
 | Overlapping subtotal revealing a small complementary group | `suppressed_complementary`, including the subtotal's weight and changes |
+| Publication | Per result and wave, one flagged subtotal and the admitted denominators; payment paths only as none, fewer than ten, ten or more, or withheld; Track M row changes as a zero summary (a nonzero change refuses assembly); no row attribution subtotals and no sensitivity record total |
+| Any signed combination of up to four published counts equal to 1–9 | Assembly refuses; the committed JSON is tested for it |
 | Restricted files, comparator fields and external benchmark changes | Refused; no benchmark is needed or reported |
 
 ## Invariants and executed tests
@@ -61,9 +67,11 @@ The following method tests use invented inputs. Hypothesis properties
 execute the variable-input invariants; fixed examples pin the boundary,
 unsupported and API cases. They do not validate a population
 claim. The publication fixture names the six authorized artifact paths
-but never reads those artifacts. The repository's static tier policy
-therefore classifies its thirteen cases as `artifact`; the other seventy-two
-cases are `unit`. There are eighty-five cases across nine modules.
+but never reads those artifacts, and the differencing tests read the
+committed diagnostic JSON, the erratum and the first-estimates artifact as
+aggregate artifacts. The repository's static tier policy classifies these
+thirty-three cases as `artifact`; the other seventy-two cases are `unit`.
+There are 105 cases across ten modules.
 
 ### Shared convention and accounting
 
@@ -160,6 +168,31 @@ These tests are in `tests/test_d1408_sharing.py` (thirteen cases).
 | Unsupported placeholders preserve dataframe dtypes, admitted identities and order, while leaving every supported amount unchanged. | `test_unsupported_placeholders_preserve_dtypes_and_denominator` |
 | A hidden sex subgroup withholds the opposite-sex subtotal and changes, preserving empty groups and existing small markers. Applying suppression again changes nothing. | `test_complementary_sex_suppression_withholds_count_and_changes` |
 
+### Publication schema and differencing
+
+These tests are in `tests/test_d1408_publication_differencing.py`
+(twenty cases). `scripts/d1408_publication_view.py` reduces each private
+aggregate to the public schema and enumerates differences. Review round 1
+found three routes in an earlier, wider schema: nested attribution
+subtotals across COLA rows R0 and R5, nested role subtotals (deceased
+basis versus positive survivor payment), and Track M's two readings'
+admitted record totals. The public schema publishes none of them.
+
+| Invariant | Exact tests |
+| --- | --- |
+| In the committed JSON, every signed combination of two to four distinct published counts, pooled by population family (COLA with FRA 68, R7 with cost ordering) and unit, across every row, wave and both Track M readings, is zero, negative or at least ten. The test recomputes the enumeration independently and checks that the walker saw every count. | `test_every_published_subtraction_is_zero_negative_or_at_least_ten` |
+| No published count is 1–9; every family is pooled. | `test_no_published_count_is_a_small_cell`, `test_every_family_is_pooled` |
+| The only exempt counts, first estimates' per-draw admitted denominators, appear in the committed artifact. | `test_exempt_denominators_are_copied_from_the_committed_artifact` |
+| Every count or weight in the erratum's results table appears in the JSON. | `test_erratum_table_publishes_nothing_beyond_the_json` |
+| A planted total equal to 1–9 plus up to three distinct published subtotals is always found; counts spaced by multiples of ten never violate; the result is order independent; families and units are not pooled together. | `test_planted_small_difference_is_found`, `test_counts_spaced_by_at_least_ten_never_violate`, `test_enumeration_is_order_independent`, `test_different_families_and_units_are_not_pooled` |
+| Each round-1 route leaks in the wide schema and is absent from the public view. | `test_round1_row_and_role_routes_are_present_raw_and_gone_public`, `test_round1_track_m_reading_route_is_present_raw_and_gone_public` |
+| A nonzero Track M change refuses rather than being summarized as zero; path categories never carry a count; assembly refuses a document with a small difference. | `test_nonzero_track_m_change_is_refused_not_summarized`, `test_path_category_never_publishes_a_count`, `test_assembler_refuses_a_document_with_a_small_difference` |
+
+Mutation proof: limiting combinations to pairs, pooling worker records
+with people, keeping the sensitivity record total, keeping row
+attribution subtotals, letting a path category return `<10`, and skipping
+row denominators in the walker each fail at least one of these tests.
+
 ### Cross-result publication
 
 These tests are in `tests/test_d1408_projection_publication.py` (six
@@ -195,6 +228,9 @@ Track M reproduces all 96 retained model cells and 91 PSID input-file
 hashes. Its supported window change leaves every committed model share
 unchanged, including the inverse-MS5 paths. The aggregate erratum gives
 the counts and weights, with small auxiliary cells suppressed.
+
+R7 reproduces all 1,267 retained model quantities at its recorded build
+pin, and cost ordering its five at its own commit.
 
 The R7 audit incidentally exposed embedded benchmark fields in a retained
 model artifact and in its model script while locating metadata. Those
