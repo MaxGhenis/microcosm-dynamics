@@ -51,23 +51,21 @@ def _document():
     return json.loads(PUBLISHED.read_text())
 
 
-def _count_leaves(value, exempt=False):
-    """Independently count integer leaves under count keys."""
+def _count_leaves(value):
+    """Independently count integer leaves under count keys; none exempt."""
     total = 0
     if isinstance(value, dict):
         for key, item in value.items():
-            skip = exempt or key == "committed_admitted_denominators"
             if (
                 key in PEOPLE_KEYS | RECORD_KEYS
                 and isinstance(item, int)
                 and not isinstance(item, bool)
-                and not skip
             ):
                 total += 1
             else:
-                total += _count_leaves(item, skip)
+                total += _count_leaves(item)
     elif isinstance(value, list):
-        total += sum(_count_leaves(item, exempt) for item in value)
+        total += sum(_count_leaves(item) for item in value)
     return total
 
 
@@ -128,16 +126,20 @@ def test_every_family_is_pooled():
     assert families == set(FAMILIES.values())
 
 
-def test_exempt_denominators_are_copied_from_the_committed_artifact():
+def test_no_count_is_exempt_and_bound_shares_use_committed_weights():
+    text = PUBLISHED.read_text()
+    assert "committed_admitted_denominators" not in text
     committed = FIRST_ESTIMATES.read_text()
     (first,) = [
         r for r in _document()["results"] if r["result"] == "first_estimates"
     ]
-    rows = first["counts"]["committed_admitted_denominators"]
-    assert rows
-    for row in rows:
-        assert re.search(rf"\b{row['people']}\b", committed)
-        assert re.search(rf"\b{int(row['weight'])}(\.0)?\b", committed)
+    bound = first["counts"]["actual_person_upper_bound"]["weight"]
+    shares = first["counts"]["upper_bound_shares_by_draw"]
+    assert len(shares) == 20
+    for row in shares:
+        weight = bound / row["admitted_weight_share_upper_bound"]
+        assert abs(weight - round(weight)) < 1e-4, row
+        assert re.search(rf"\b{round(weight)}(\.0)?\b", committed), row
 
 
 def test_erratum_table_publishes_nothing_beyond_the_json():
@@ -518,3 +520,22 @@ def test_assembler_refuses_a_document_with_a_small_difference(monkeypatch):
     monkeypatch.setattr(d1408_diagnostic, "SCRATCH", Scratch())
     with pytest.raises(ValueError, match="reveal a group under ten"):
         d1408_diagnostic.assemble()
+
+
+def test_republishing_first_estimates_draw_denominators_is_refused():
+    # Round 2: draws 1 and 11 admit 1,526 and 1,525 people in the committed
+    # artifact; republishing both would make a difference of one.
+    document = _document()
+    (first,) = [
+        r for r in document["results"] if r["result"] == "first_estimates"
+    ]
+    rows = [
+        {"draw_index": 1, "people": 1526, "weight": 1.0},
+        {"draw_index": 11, "people": 1525, "weight": 2.0},
+    ]
+    first["counts"]["draw_denominators"] = rows
+    with pytest.raises(ValueError, match="without a population"):
+        differencing_violations(document)
+    for row in rows:
+        row["population"] = f"first_estimates/draw{row['draw_index']}"
+    assert 1 in {v["value"] for v in differencing_violations(document)}

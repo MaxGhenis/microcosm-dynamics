@@ -71,8 +71,8 @@ claim. The publication fixture names the six authorized artifact paths
 but never reads those artifacts, and the differencing tests read the
 committed diagnostic JSON, the erratum and the first-estimates artifact as
 aggregate artifacts. The repository's static tier policy classifies these
-thirty-eight cases as `artifact`; the other seventy-two cases are `unit`.
-There are 110 cases across ten modules.
+thirty-nine cases as `artifact`; the other seventy-two cases are `unit`.
+There are 111 cases across ten modules.
 
 ### Shared convention and accounting
 
@@ -172,7 +172,7 @@ These tests are in `tests/test_d1408_sharing.py` (thirteen cases).
 ### Publication schema and differencing
 
 These tests are in `tests/test_d1408_publication_differencing.py`
-(twenty-five cases). `scripts/d1408_publication_view.py` reduces each
+(twenty-six cases). `scripts/d1408_publication_view.py` reduces each
 private aggregate to the public schema and sweeps differences: it computes
 every sum reachable by adding, subtracting or omitting each distinct
 published count in a family (all 3**n sign patterns, by dynamic
@@ -200,7 +200,7 @@ admitted record totals. The public schema publishes none of them.
 | The sweep equals brute force over every sign pattern, and each witness sums to its value using each population once; a pool over the bound refuses. | `test_sweep_equals_brute_force_over_every_sign_pattern`, `test_pool_beyond_the_bound_refuses` |
 | Every positive count in the committed JSON declares a population; only the R7 frame is shared, by its two results; a declared population enters once and must match in count and weight; different ids never merge; a count without a population refuses. | `test_every_positive_count_declares_its_population`, `test_declared_population_enters_once_and_must_match`, `test_count_without_a_population_refuses` |
 | No published count is 1–9; every family is pooled. | `test_no_published_count_is_a_small_cell`, `test_every_family_is_pooled` |
-| The only exempt counts, first estimates' per-draw admitted denominators, appear in the committed artifact. | `test_exempt_denominators_are_copied_from_the_committed_artifact` |
+| No count is exempt from the sweep: first estimates' per-draw admitted counts are not republished, each per-draw share equals the bound's weight divided by a draw weight present in the committed artifact, and republishing two draws' counts (1,526 and 1,525) would be refused. Different draws are different samples, not nested sets, and the 21-person bound is a roster subset rather than a subset of any one draw's admitted set, so combining them with the artifact's denominators has no set meaning; they are kept out of the publication rather than argued safe. | `test_no_count_is_exempt_and_bound_shares_use_committed_weights`, `test_republishing_first_estimates_draw_denominators_is_refused` |
 | Every count or weight in the erratum's results table appears in the JSON. | `test_erratum_table_publishes_nothing_beyond_the_json` |
 | A planted total equal to 1–9 plus up to six distinct published subtotals is always found; counts spaced by multiples of ten never violate; the result is order independent; families and units are not pooled together. | `test_planted_small_difference_is_found`, `test_counts_spaced_by_at_least_ten_never_violate`, `test_enumeration_is_order_independent`, `test_different_families_and_units_are_not_pooled` |
 | Each round-1 route leaks in the wide schema and is absent from the public view. | `test_round1_row_and_role_routes_are_present_raw_and_gone_public`, `test_round1_track_m_reading_route_is_present_raw_and_gone_public` |

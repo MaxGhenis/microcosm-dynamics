@@ -47,8 +47,6 @@ PEOPLE_KEYS = frozenset(
     }
 )
 RECORD_KEYS = frozenset({"worker_records", "admitted_worker_records"})
-# Copied verbatim from the committed artifact; already public.
-EXEMPT_KEYS = frozenset({"committed_admitted_denominators"})
 MAX_CELLS = 20
 
 
@@ -149,9 +147,11 @@ def first_estimates_view(result) -> dict:
                 "upper_bounds_with_committed_admitted_denominators"
             ]
         ],
-        "committed_admitted_denominators": counts[
-            "committed_admitted_denominators"
-        ],
+        # Each share is the bound's weight divided by that draw's admitted
+        # weight in the committed artifact; the counts are not republished.
+        "share_denominators": (
+            "runs/first_estimates_v1.json, each draw's admitted weight"
+        ),
         "pre1917_evaluations": counts["pre1917_evaluations"],
         "pre1917_reason": counts["pre1917_reason"],
     }
@@ -428,8 +428,6 @@ def _walk(value, family, path):
             None,
         )
         for key, item in value.items():
-            if key in EXEMPT_KEYS:
-                continue
             here = path + (key,)
             if (key in PEOPLE_KEYS or key in RECORD_KEYS) and _is_count(item):
                 unit = "people" if key in PEOPLE_KEYS else "worker_records"
