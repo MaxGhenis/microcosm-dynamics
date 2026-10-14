@@ -72,7 +72,7 @@ def assemble():
         "verification_class": "labelled diagnostic",
         "ruling": "d1408 (2026-10-12)",
         "registered_artifacts_retained": True,
-        "privacy": "aggregate counts and changes only. Per result and wave, one flagged subtotal and the admitted denominators are published; payment paths are reported only as none, fewer than ten, ten or more, or withheld. Positive cells below ten people are suppressed with their weights, shares and changes, and no signed (+1/-1) combination of distinct published counts within a population family and unit, of any size, equals one through nine.",
+        "privacy": "aggregate counts and changes only. Per result and wave, one flagged subtotal is published, with the seed-cohort or admitted denominator its share uses; payment paths are reported only as none, fewer than ten, ten or more, or withheld. Positive cells below ten people are suppressed with their weights, shares and changes. Every published count declares the population it measures; a population republished in several cells has the same count and weight in each and enters once; and no signed (+1/-1) combination of distinct populations within a population family and unit, of any size, equals one through nine.",
         "statutory_authority": [
             "42 USC 402(w)(2)(A)",
             "42 USC 402(w)(6)(A)",

@@ -6,10 +6,12 @@ microdata. The first review round showed that publishing many nested
 subtotals let a reader recover groups of fewer than ten people by
 subtraction. The public view therefore keeps, per result and wave, one
 flagged subtotal and the admitted denominators; it reports each payment
-path only as "none", "fewer than ten", "ten or more" or "withheld"; and
-``differencing_violations`` sweeps every signed combination of the
-distinct published counts within a population family, with no size limit,
-and refuses any that equals one through nine.
+path only as "none", "fewer than ten", "ten or more" or "withheld". Every
+published positive count declares, in a ``population`` field, the id of the
+population it measures. ``differencing_violations`` pools counts by that
+id, asserts that every cell sharing an id has the same count and weight,
+and sweeps every signed combination of the distinct populations within a
+family, with no size limit, refusing any that equals one through nine.
 """
 
 from __future__ import annotations
@@ -72,10 +74,12 @@ def path_category(cell) -> str:
     raise ValueError(f"unrecognized path cell: {cell!r}")
 
 
-def flagged_cell(cell) -> dict:
+def flagged_cell(cell, population: str) -> dict:
     """Keep a flagged subtotal's count, records, weight and share only."""
     keys = ("people", "worker_records", "weight", "admitted_weight_share")
-    return {key: cell[key] for key in keys if key in cell}
+    out = {key: cell[key] for key in keys if key in cell}
+    out["population"] = population
+    return out
 
 
 def _copy(result, keys):
@@ -115,13 +119,35 @@ def first_estimates_view(result) -> dict:
         ),
     )
     view["counts"] = {
-        "real_roster_people": counts["real_roster_people"],
-        "real_roster_weight": counts["real_roster_weight"],
-        "support_upper_bound": counts["support_upper_bound"],
-        "actual_person_upper_bound": counts["actual_person_upper_bound"],
-        "expected_support_bound": counts["expected_support_bound"],
-        "upper_bounds_with_committed_admitted_denominators": counts[
-            "upper_bounds_with_committed_admitted_denominators"
+        "real_roster": {
+            "people": counts["real_roster_people"],
+            "weight": counts["real_roster_weight"],
+            "population": "first_estimates/report_seed_roster",
+        },
+        "support_upper_bound": dict(
+            counts["support_upper_bound"],
+            population="first_estimates/supported_birth_cohort",
+        ),
+        "actual_person_upper_bound": dict(
+            counts["actual_person_upper_bound"],
+            population="first_estimates/actual_person_upper_bound",
+        ),
+        "expected_support_bound": dict(
+            counts["expected_support_bound"],
+            population="first_estimates/expected_support_bound",
+        ),
+        # The per-draw bound is the same 21-person set divided by each
+        # draw's committed denominator, so only its share is repeated.
+        "upper_bound_shares_by_draw": [
+            {
+                "draw_index": row["draw_index"],
+                "admitted_weight_share_upper_bound": row[
+                    "admitted_weight_share_upper_bound"
+                ],
+            }
+            for row in counts[
+                "upper_bounds_with_committed_admitted_denominators"
+            ]
         ],
         "committed_admitted_denominators": counts[
             "committed_admitted_denominators"
@@ -170,7 +196,10 @@ def minimum_view(result) -> dict:
         supported = reading["supported"]
         public = {
             "flagged_supported": (
-                flagged_cell(supported["all_flagged_evaluations"])
+                flagged_cell(
+                    supported["all_flagged_evaluations"],
+                    "track_m/scored/flagged_supported",
+                )
                 if name == "scored"
                 else WITHHELD
             ),
@@ -191,14 +220,16 @@ def minimum_view(result) -> dict:
                 "legacy_reproduction_verified"
             ],
         }
-        public["admitted_people"] = reading["admitted_people"]
-        public["admitted_weight"] = reading["admitted_weight"]
         if name == "scored":
-            # The sensitivity reading's record total differs by a small
-            # removed-record group, so only the scored total is public.
-            public["admitted_worker_records"] = reading[
-                "admitted_worker_records"
-            ]
+            # Only the scored reading's denominators are public: the
+            # sensitivity reading's record total differs from it by a
+            # small removed-record group.
+            public["admitted"] = {
+                "people": reading["admitted_people"],
+                "worker_records": reading["admitted_worker_records"],
+                "weight": reading["admitted_weight"],
+                "population": "track_m/scored/admitted",
+            }
         readings[name] = public
     view["readings"] = readings
     return view
@@ -228,9 +259,13 @@ def _share_cells(model_shares) -> dict:
 
 def sharing_view(result) -> dict:
     view = _copy(result, IDENTITY + ("reproduction",))
-    view["admitted"] = result["admitted"]
+    # Cost ordering's R7 component scores R7's own StudyData frame
+    # (scripts/replication_cost_ordering.py builds R7's StudyData and calls
+    # R7's score_population), so both results measure one population.
+    view["admitted"] = dict(result["admitted"], population="r7_frame/admitted")
     view["flagged_supported"] = flagged_cell(
-        result["flagged_supported"]["admitted_recipients"]
+        result["flagged_supported"]["admitted_recipients"],
+        "r7_frame/flagged_supported",
     )
     view["pre1917_flagged_people"] = result["flagged_pre_1917"][
         "admitted_recipients"
@@ -308,7 +343,9 @@ def projection_view(result) -> dict:
         waves[wave] = {
             "seed_cohort_weight": counts["seed_cohort_weight"],
             "flagged_supported": (
-                flagged_cell(flagged)
+                flagged_cell(
+                    flagged, f"{result['result']}/{wave}/flagged_supported"
+                )
                 if flagged is not None
                 else {"people": 0, "worker_records": 0, "weight": 0}
             ),
@@ -318,14 +355,30 @@ def projection_view(result) -> dict:
             },
         }
     view["waves"] = waves
-    view["admitted_by_row"] = {
-        row: {
-            "admitted_people": value["admitted_people"],
-            "admitted_weight": value["admitted_weight"],
-        }
-        for row, value in result["admitted_beneficiary_counts_by_row"].items()
-    }
+    # Row denominators are not published: rows that differ in benefit
+    # period, components or wave cannot be shown to share a population,
+    # and the flagged shares use each wave's seed-cohort weight.
+    view["headline_changes"] = _declare_changed(
+        result["result"], result.get("headline_changes", {})
+    )
     return view
+
+
+def _declare_changed(name, changes) -> dict:
+    """Give each row's and group's changed-recipient count its population."""
+    out = {}
+    for row, value in changes.items():
+        row_out = dict(value)
+        row_out["population"] = f"{name}/{row}/changed_recipients"
+        row_out["groups"] = {
+            group: dict(
+                cell,
+                population=f"{name}/{row}/{group}/changed_recipients",
+            )
+            for group, cell in value.get("groups", {}).items()
+        }
+        out[row] = row_out
+    return out
 
 
 VIEWS = {
@@ -348,15 +401,15 @@ WEIGHT_KEYS = ("weight", "admitted_weight", "weight_upper_bound")
 
 def published_counts(document):
     """Yield (family, unit, path, value) for every published integer count."""
-    for family, unit, path, value, _ in published_cells(document):
+    for family, unit, path, value, *_ in published_cells(document):
         yield family, unit, path, value
 
 
 def published_cells(document):
-    """Yield (family, unit, path, value, weight) for every published count.
+    """Yield (family, unit, path, value, weight, population) per count.
 
     ``weight`` is the summed weight published beside the count in the same
-    cell, or None.
+    cell, or None; ``population`` is the cell's declared population id.
     """
     for index, result in enumerate(document["results"]):
         family = FAMILIES[result["result"]]
@@ -380,7 +433,14 @@ def _walk(value, family, path):
             here = path + (key,)
             if (key in PEOPLE_KEYS or key in RECORD_KEYS) and _is_count(item):
                 unit = "people" if key in PEOPLE_KEYS else "worker_records"
-                yield family, unit, "/".join(here), item, weight
+                yield (
+                    family,
+                    unit,
+                    "/".join(here),
+                    item,
+                    weight,
+                    value.get("population"),
+                )
             else:
                 yield from _walk(item, family, here)
     elif isinstance(value, list):
@@ -398,29 +458,48 @@ def _is_count(value) -> bool:
 
 
 def distinct_cells(document):
-    """Pool positive counts by family and unit, one entry per distinct set.
+    """Pool positive counts by family and unit, one entry per population.
 
-    A count published again with the same summed weight (a denominator
-    repeated per row, a bound repeated per draw, the same flagged group in
-    R7 and cost ordering) is the same set of people; a subtraction can use
-    it at most once, so it is pooled once. An unweighted count is never
-    merged. Raises if a pool exceeds ``MAX_CELLS``, the bound that keeps
-    the full sweep cheap and reviewable.
+    Every positive count must declare the population it measures. A
+    population republished in several cells (the R7 frame in R7 and cost
+    ordering, for example) enters the sweep once, and every cell that
+    shares its id must publish the same count and weight. Different ids
+    never merge, whatever their values. Raises if a pool exceeds
+    ``MAX_CELLS`` distinct populations, the bound that keeps the full sweep
+    and its brute-force check cheap.
     """
     pools = {}
-    for family, unit, path, value, weight in published_cells(document):
+    for family, unit, path, value, weight, population in published_cells(
+        document
+    ):
         if value <= 0:
             continue
+        if not isinstance(population, str) or not population:
+            raise ValueError(f"published count without a population: {path}")
         cells = pools.setdefault((family, unit), {})
-        key = (int(value), weight) if weight is not None else (path,)
-        cells.setdefault(key, {"value": int(value), "paths": []})
-        cells[key]["paths"].append(path)
+        cell = cells.setdefault(
+            population,
+            {
+                "population": population,
+                "value": int(value),
+                "weight": weight,
+                "paths": [],
+            },
+        )
+        if cell["value"] != int(value) or cell["weight"] != weight:
+            raise ValueError(
+                f"population {population} does not match across cells: "
+                f"{cell['paths'][0]} has {cell['value']} (weight "
+                f"{cell['weight']}), {path} has {int(value)} (weight {weight})"
+            )
+        cell["paths"].append(path)
     out = {}
     for pool, cells in sorted(pools.items()):
         if len(cells) > MAX_CELLS:
             raise ValueError(
-                f"{pool} publishes {len(cells)} distinct counts, more than "
-                f"the {MAX_CELLS} the full differencing sweep is bounded to"
+                f"{pool} publishes {len(cells)} distinct populations, more "
+                f"than the {MAX_CELLS} the full differencing sweep is "
+                "bounded to"
             )
         out[pool] = list(cells.values())
     return out
@@ -450,8 +529,9 @@ def differencing_violations(document):
     population family and unit, that equals one through nine.
 
     No subset size limit: all 3**n sign patterns over the pool's distinct
-    sets are covered. A single published count of one through nine is a
-    violation too.
+    populations are covered. This over-approximates real set differencing
+    (unrelated populations are combined too), which errs on the safe side.
+    A single published count of one through nine is a violation too.
     """
     violations = []
     for (family, unit), cells in distinct_cells(document).items():

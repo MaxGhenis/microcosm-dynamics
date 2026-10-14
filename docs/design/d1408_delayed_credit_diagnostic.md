@@ -57,8 +57,9 @@ denominators.
 | Positive pre-1917 credits | `unsupported_pre1917_credit_rate`; no statutory amount |
 | Fewer than ten underlying people | `<10` for the whole cell, including weights, shares and changes |
 | Overlapping subtotal revealing a small complementary group | `suppressed_complementary`, including the subtotal's weight and changes |
-| Publication | Per result and wave, one flagged subtotal and the admitted denominators; payment paths only as none, fewer than ten, ten or more, or withheld; Track M row changes as a zero summary (a nonzero change refuses assembly); no row attribution subtotals and no sensitivity record total |
-| Any signed (+1/-1) combination of distinct published counts in a population family, of any size, equal to 1–9 | Assembly refuses; the committed JSON is tested for it by brute force over every sign pattern |
+| Publication | Per result and wave, one flagged subtotal and the denominator its share uses; payment paths only as none, fewer than ten, ten or more, or withheld; Track M row changes as a zero summary (a nonzero change refuses assembly); no row attribution subtotals, no row denominators, no sensitivity-reading denominators, and first estimates' per-draw bound as shares only |
+| Population provenance | Every positive published count carries a `population` id naming what it measures; a count without one refuses assembly; cells sharing an id must have identical count and weight, or assembly refuses |
+| Any signed (+1/-1) combination of distinct published populations in a family, of any size, equal to 1–9 | Assembly refuses; the committed JSON is tested for it by brute force over every sign pattern |
 | Restricted files, comparator fields and external benchmark changes | Refused; no benchmark is needed or reported |
 
 ## Invariants and executed tests
@@ -70,8 +71,8 @@ claim. The publication fixture names the six authorized artifact paths
 but never reads those artifacts, and the differencing tests read the
 committed diagnostic JSON, the erratum and the first-estimates artifact as
 aggregate artifacts. The repository's static tier policy classifies these
-thirty-six cases as `artifact`; the other seventy-two cases are `unit`.
-There are 108 cases across ten modules.
+thirty-eight cases as `artifact`; the other seventy-two cases are `unit`.
+There are 110 cases across ten modules.
 
 ### Shared convention and accounting
 
@@ -171,15 +172,23 @@ These tests are in `tests/test_d1408_sharing.py` (thirteen cases).
 ### Publication schema and differencing
 
 These tests are in `tests/test_d1408_publication_differencing.py`
-(twenty-three cases). `scripts/d1408_publication_view.py` reduces each
+(twenty-five cases). `scripts/d1408_publication_view.py` reduces each
 private aggregate to the public schema and sweeps differences: it computes
 every sum reachable by adding, subtracting or omitting each distinct
 published count in a family (all 3**n sign patterns, by dynamic
 programming over the sums), refuses any in 1–9, and refuses a family that
-publishes more than 20 distinct counts, the bound that keeps the sweep and
-its brute-force check cheap. A count republished with the same summed
-weight (a denominator repeated per row, a bound repeated per draw) is the
-same set and enters once; an unweighted count is never merged. Review round 1
+publishes more than 20 distinct populations, the bound that keeps the
+sweep and its brute-force check cheap. Pooling is by declared provenance,
+never inferred from equal numbers: each published count names its
+population (for example `cola/2011/flagged_supported`, or
+`r7_frame/admitted`, which R7 and cost ordering share because cost
+ordering scores R7's own StudyData frame). A population republished in
+several cells enters once, and every cell sharing its id must carry the
+same count and weight; different ids never merge. The sweep combines
+unrelated populations too, so it over-approximates real set differencing
+and errs on the safe side. Rows that differ in benefit period, components
+or wave cannot be shown to share a population, so row denominators are
+not published at all. Review round 1
 found three routes in an earlier, wider schema: nested attribution
 subtotals across COLA rows R0 and R5, nested role subtotals (deceased
 basis versus positive survivor payment), and Track M's two readings'
@@ -188,7 +197,8 @@ admitted record totals. The public schema publishes none of them.
 | Invariant | Exact tests |
 | --- | --- |
 | In the committed JSON, no signed combination of distinct published counts, pooled by population family (COLA with FRA 68, R7 with cost ordering) and unit, across every row, wave and both Track M readings, equals 1–9. The test lists all 3**n sign patterns per pool by brute force, checks they equal the sweep, and checks that the walker saw every count and no pool exceeds 20. | `test_every_published_subtraction_is_zero_negative_or_at_least_ten` |
-| The sweep equals brute force over every sign pattern, and each witness sums to its value using each set once; a pool over the bound refuses; a repeated set enters once and distinct sets with equal counts do not merge. | `test_sweep_equals_brute_force_over_every_sign_pattern`, `test_pool_beyond_the_bound_refuses`, `test_repeated_set_is_pooled_once_and_distinct_sets_are_not` |
+| The sweep equals brute force over every sign pattern, and each witness sums to its value using each population once; a pool over the bound refuses. | `test_sweep_equals_brute_force_over_every_sign_pattern`, `test_pool_beyond_the_bound_refuses` |
+| Every positive count in the committed JSON declares a population; only the R7 frame is shared, by its two results; a declared population enters once and must match in count and weight; different ids never merge; a count without a population refuses. | `test_every_positive_count_declares_its_population`, `test_declared_population_enters_once_and_must_match`, `test_count_without_a_population_refuses` |
 | No published count is 1–9; every family is pooled. | `test_no_published_count_is_a_small_cell`, `test_every_family_is_pooled` |
 | The only exempt counts, first estimates' per-draw admitted denominators, appear in the committed artifact. | `test_exempt_denominators_are_copied_from_the_committed_artifact` |
 | Every count or weight in the erratum's results table appears in the JSON. | `test_erratum_table_publishes_nothing_beyond_the_json` |
@@ -196,8 +206,10 @@ admitted record totals. The public schema publishes none of them.
 | Each round-1 route leaks in the wide schema and is absent from the public view. | `test_round1_row_and_role_routes_are_present_raw_and_gone_public`, `test_round1_track_m_reading_route_is_present_raw_and_gone_public` |
 | A nonzero Track M change refuses rather than being summarized as zero; path categories never carry a count; assembly refuses a document with a small difference. | `test_nonzero_track_m_change_is_refused_not_summarized`, `test_path_category_never_publishes_a_count`, `test_assembler_refuses_a_document_with_a_small_difference` |
 
-Mutation proof: dropping subtraction from the sweep, merging unweighted
-counts, removing the pool bound, pooling worker records
+Mutation proof: dropping subtraction from the sweep, pooling by equal
+count and weight instead of declared id, skipping the identity check,
+defaulting a missing population, publishing row denominators, removing
+the pool bound, pooling worker records
 with people, keeping the sensitivity record total, keeping row
 attribution subtotals, letting a path category return `<10`, and skipping
 row denominators in the walker each fail at least one of these tests.

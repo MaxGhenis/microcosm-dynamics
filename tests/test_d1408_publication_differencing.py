@@ -3,8 +3,9 @@
 Verification class: labelled diagnostic publication guard. The committed
 JSON is read as an aggregate artifact; no microdata is opened. The
 guarantee is that no signed (+1/-1) combination of distinct published
-counts within a population family and unit, of any size, equals one
-through nine. Each family publishes at most ``MAX_CELLS`` distinct counts,
+populations within a population family and unit, of any size, equals one
+through nine. Every positive count declares the population it measures;
+a population republished in several cells enters once and must match. Each family publishes at most ``MAX_CELLS`` distinct counts,
 so the committed JSON is also checked by listing all 3**n sign patterns
 outright. The invented-input properties show that the sweep finds every
 planted small combination and agrees with brute force, and the
@@ -33,6 +34,7 @@ from scripts.d1408_publication_view import (
     minimum_view,
     path_category,
     projection_view,
+    published_cells,
     published_counts,
     reachable_sums,
 )
@@ -76,7 +78,7 @@ def test_every_published_subtraction_is_zero_negative_or_at_least_ten():
     # Track M reading; none is skipped.
     assert len(cells) == _count_leaves(document)
     paths = [path for _, _, path, _ in cells]
-    assert any("admitted_by_row" in path for path in paths)
+    assert any("headline_changes" in path for path in paths)
     assert any("readings/scored" in path for path in paths)
     assert any("readings/d430_sensitivity" in path for path in paths)
     # Brute force over every sign pattern of every pool's distinct sets,
@@ -93,6 +95,27 @@ def test_every_published_subtraction_is_zero_negative_or_at_least_ten():
         assert set(reachable_sums(values)) == brute
         assert not brute & set(range(1, 10)), (family, unit, values)
     assert differencing_violations(document) == []
+
+
+def test_every_positive_count_declares_its_population():
+    document = _document()
+    cells = list(published_cells(document))
+    assert cells
+    for _, _, path, value, _, population in cells:
+        if value > 0:
+            assert isinstance(population, str) and population, path
+    # R7 and cost ordering are one frame: the shared ids carry identical
+    # cells (distinct_cells raises otherwise).
+    pools = distinct_cells(document)
+    shared = {
+        cell["population"]: len(cell["paths"])
+        for cell in pools[("r7", "people")]
+    }
+    assert shared == {"r7_frame/admitted": 2, "r7_frame/flagged_supported": 2}
+    # Every other population is published once.
+    for pool, cells in pools.items():
+        if pool[0] != "r7":
+            assert all(len(cell["paths"]) == 1 for cell in cells), pool
 
 
 def test_no_published_count_is_a_small_cell():
@@ -158,7 +181,12 @@ def _invented(counts):
             {
                 "result": "cola",
                 "waves": {
-                    str(index): {"flagged_supported": {"people": value}}
+                    str(index): {
+                        "flagged_supported": {
+                            "people": value,
+                            "population": f"invented/{index}",
+                        }
+                    }
                     for index, value in enumerate(counts)
                 },
             }
@@ -206,32 +234,43 @@ def test_pool_beyond_the_bound_refuses():
     assert differencing_violations(_invented(counts[:MAX_CELLS])) == []
 
 
-def test_repeated_set_is_pooled_once_and_distinct_sets_are_not():
-    def doc(weights):
-        return {
-            "results": [
-                {
-                    "result": "cola",
-                    "rows": {
-                        name: {"admitted_people": 9750, "admitted_weight": w}
-                        for name, w in weights.items()
-                    },
-                    "flagged": {"people": 9741},
-                }
-            ]
-        }
+def _rows(*cells):
+    return {
+        "results": [
+            {
+                "result": "cola",
+                "rows": {
+                    f"r{i}": {
+                        "people": people,
+                        "weight": weight,
+                        "population": population,
+                    }
+                    for i, (people, weight, population) in enumerate(cells)
+                },
+            }
+        ]
+    }
 
-    same = distinct_cells(doc({"R0": 1.0, "R1": 1.0}))
-    assert len(same[("projection", "people")]) == 2
-    assert (
-        differencing_violations(doc({"R0": 1.0, "R1": 1.0}))[0]["value"] == 9
-    )
-    different = distinct_cells(doc({"R0": 1.0, "R1": 2.0}))
-    assert len(different[("projection", "people")]) == 3
-    # Unweighted equal counts may be different people: never merged.
+
+def test_declared_population_enters_once_and_must_match():
+    same = _rows((9750, 1.0, "denominator"), (9750, 1.0, "denominator"))
+    assert len(distinct_cells(same)[("projection", "people")]) == 1
+    with pytest.raises(ValueError, match="does not match"):
+        distinct_cells(_rows((9750, 1.0, "d"), (9741, 1.0, "d")))
+    with pytest.raises(ValueError, match="does not match"):
+        distinct_cells(_rows((9750, 1.0, "d"), (9750, 2.0, "d")))
+    # Different populations never merge, even with equal count and weight.
+    twins = _rows((9750, 1.0, "a"), (9750, 1.0, "b"), (19491, 1.0, "c"))
+    assert len(distinct_cells(twins)[("projection", "people")]) == 3
+    assert 9 in {v["value"] for v in differencing_violations(twins)}
     unweighted = _invented([40, 40, 85])
-    assert len(distinct_cells(unweighted)[("projection", "people")]) == 3
     assert [v["value"] for v in differencing_violations(unweighted)] == [5]
+
+
+def test_count_without_a_population_refuses():
+    document = {"results": [{"result": "cola", "w": {"people": 40}}]}
+    with pytest.raises(ValueError, match="without a population"):
+        differencing_violations(document)
 
 
 @settings(deadline=None, max_examples=200)
@@ -261,15 +300,41 @@ def test_enumeration_is_order_independent(base, small, rnd):
 def test_different_families_and_units_are_not_pooled():
     document = {
         "results": [
-            {"result": "cola", "waves": {"2011": {"people": 21}}},
-            {"result": "r7_sharing", "flagged": {"people": 12}},
-            {"result": "cola", "w": {"worker_records": 15}},
+            {
+                "result": "cola",
+                "waves": {"2011": {"people": 21, "population": "a"}},
+            },
+            {
+                "result": "r7_sharing",
+                "flagged": {"people": 12, "population": "b"},
+            },
+            {
+                "result": "cola",
+                "w": {"worker_records": 15, "population": "c"},
+            },
         ]
     }
     assert differencing_violations(document) == []
 
 
 # ---- regressions for review round 1's three routes ----
+
+
+def _declare_by_path(value, path="raw"):
+    """Give every raw cell its own population, the strictest pooling."""
+    if isinstance(value, dict):
+        out = {k: _declare_by_path(v, f"{path}/{k}") for k, v in value.items()}
+        if any(
+            k in PEOPLE_KEYS | RECORD_KEYS and isinstance(v, int)
+            for k, v in out.items()
+        ):
+            out["population"] = path
+        return out
+    if isinstance(value, list):
+        return [
+            _declare_by_path(v, f"{path}/{i}") for i, v in enumerate(value)
+        ]
+    return value
 
 
 def _cell(people, records, weight):
@@ -313,14 +378,15 @@ def _invented_projection():
 
 def test_round1_row_and_role_routes_are_present_raw_and_gone_public():
     raw = _invented_projection()
-    raw_doc = {"results": [raw]}
+    raw_doc = {"results": [_declare_by_path(raw)]}
     # The raw aggregate leaks exactly as the review found.
     leaked = {v["value"] for v in differencing_violations(raw_doc)}
     assert {3, 1, 2, 9} <= leaked
     public = {"results": [projection_view(raw)]}
     assert differencing_violations(public) == []
-    row = public["results"][0]["admitted_by_row"]["R0"]
-    assert set(row) == {"admitted_people", "admitted_weight"}
+    # No row attribution subtotal or row denominator is published.
+    assert "admitted_by_row" not in public["results"][0]
+    assert "admitted_beneficiary_counts_by_row" not in public["results"][0]
     paths = public["results"][0]["waves"]["2011"]["paths"]
     assert paths["deceased_auxiliary_basis"] == "ten or more"
     assert paths["positive_survivor_payment"] == "ten or more"
@@ -372,12 +438,14 @@ def test_round1_track_m_reading_route_is_present_raw_and_gone_public():
             ),
         },
     }
-    leaked = {v["value"] for v in differencing_violations({"results": [raw]})}
+    leaked = {
+        v["value"]
+        for v in differencing_violations({"results": [_declare_by_path(raw)]})
+    }
     assert 7 in leaked
     public = minimum_view(raw)
-    assert (
-        "admitted_worker_records" not in public["readings"]["d430_sensitivity"]
-    )
+    assert "admitted" not in public["readings"]["d430_sensitivity"]
+    assert public["readings"]["scored"]["admitted"]["worker_records"] == 2391
     assert public["readings"]["d430_sensitivity"]["flagged_supported"] == (
         "withheld"
     )
@@ -418,7 +486,10 @@ def test_assembler_refuses_a_document_with_a_small_difference(monkeypatch):
     def fake(results):
         return {
             "result": results["result"],
-            "waves": {"a": {"people": 40}, "b": {"people": 37}},
+            "waves": {
+                "a": {"people": 40, "population": "a"},
+                "b": {"people": 37, "population": "b"},
+            },
         }
 
     monkeypatch.setattr(d1408_diagnostic, "public_view", fake)
