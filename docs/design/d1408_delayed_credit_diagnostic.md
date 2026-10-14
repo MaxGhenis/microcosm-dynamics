@@ -186,7 +186,17 @@ ordering scores R7's own StudyData frame). A population republished in
 several cells enters once, and every cell sharing its id must carry the
 same count and weight; different ids never merge. The sweep combines
 unrelated populations too, so it over-approximates real set differencing
-and errs on the safe side. Rows that differ in benefit period, components
+and errs on the safe side. People and worker-record counts share a
+family's pool (review round 3): Track M's flagged people include linked
+beneficiaries of flagged owners, so people minus records would bound a
+withheld cell, and Track M's flagged record count is therefore not
+published. Where flagged records are one per person (COLA, FRA 68), the
+JSON states `one_worker_record_per_person` instead of a second count of
+the same group, and the projection share is named
+`seed_cohort_weight_share` for its denominator. Rounded population-level
+aggregates (R7's and cost ordering's aggregate cost change) are published
+even where fewer than ten people's payments change; they show only that
+the combined effect stays below the reported precision. Rows that differ in benefit period, components
 or wave cannot be shown to share a population, so row denominators are
 not published at all. Review round 1
 found three routes in an earlier, wider schema: nested attribution
@@ -198,7 +208,7 @@ admitted record totals. The public schema publishes none of them.
 | --- | --- |
 | In the committed JSON, no signed combination of distinct published counts, pooled by population family (COLA with FRA 68, R7 with cost ordering) and unit, across every row, wave and both Track M readings, equals 1–9. The test lists all 3**n sign patterns per pool by brute force, checks they equal the sweep, and checks that the walker saw every count and no pool exceeds 20. | `test_every_published_subtraction_is_zero_negative_or_at_least_ten` |
 | The sweep equals brute force over every sign pattern, and each witness sums to its value using each population once; a pool over the bound refuses. | `test_sweep_equals_brute_force_over_every_sign_pattern`, `test_pool_beyond_the_bound_refuses` |
-| Every positive count in the committed JSON declares a population; only the R7 frame is shared, by its two results; a declared population enters once and must match in count and weight; different ids never merge; a count without a population refuses. | `test_every_positive_count_declares_its_population`, `test_declared_population_enters_once_and_must_match`, `test_count_without_a_population_refuses` |
+| Every positive count in the committed JSON declares a population; only the R7 frame is shared, by its two results; Track M's flagged record count is absent; a declared population enters once and must match in count and weight; different ids never merge; people and records of one family pool together while families stay apart; a count without a population refuses. | `test_every_positive_count_declares_its_population`, `test_declared_population_enters_once_and_must_match`, `test_units_pool_together_but_families_do_not`, `test_count_without_a_population_refuses` |
 | No published count is 1–9; every family is pooled. | `test_no_published_count_is_a_small_cell`, `test_every_family_is_pooled` |
 | No count is exempt from the sweep: first estimates' per-draw admitted counts are not republished, each per-draw share equals the bound's weight divided by a draw weight present in the committed artifact, and republishing two draws' counts (1,526 and 1,525) would be refused. Different draws are different samples, not nested sets, and the 21-person bound is a roster subset rather than a subset of any one draw's admitted set, so combining them with the artifact's denominators has no set meaning; they are kept out of the publication rather than argued safe. | `test_no_count_is_exempt_and_bound_shares_use_committed_weights`, `test_republishing_first_estimates_draw_denominators_is_refused` |
 | Every count or weight in the erratum's results table appears in the JSON. | `test_erratum_table_publishes_nothing_beyond_the_json` |
@@ -208,7 +218,9 @@ admitted record totals. The public schema publishes none of them.
 
 Mutation proof: dropping subtraction from the sweep, pooling by equal
 count and weight instead of declared id, skipping the identity check,
-defaulting a missing population, publishing row denominators, removing
+defaulting a missing population, publishing row denominators, pooling
+units apart, republishing Track M's flagged records or a duplicate
+one-to-one record count, keeping the projection share's old name, removing
 the pool bound, pooling worker records
 with people, keeping the sensitivity record total, keeping row
 attribution subtotals, letting a path category return `<10`, and skipping

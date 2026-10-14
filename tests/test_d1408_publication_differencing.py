@@ -83,7 +83,7 @@ def test_every_published_subtraction_is_zero_negative_or_at_least_ten():
     # recomputed here rather than trusted, and checked against the sweep.
     pools = distinct_cells(document)
     assert pools
-    for (family, unit), cells in pools.items():
+    for family, cells in pools.items():
         assert len(cells) <= MAX_CELLS
         values = [cell["value"] for cell in cells]
         brute = {
@@ -91,7 +91,7 @@ def test_every_published_subtraction_is_zero_negative_or_at_least_ten():
             for coefs in itertools.product((-1, 0, 1), repeat=len(values))
         }
         assert set(reachable_sums(values)) == brute
-        assert not brute & set(range(1, 10)), (family, unit, values)
+        assert not brute & set(range(1, 10)), (family, values)
     assert differencing_violations(document) == []
 
 
@@ -106,14 +106,27 @@ def test_every_positive_count_declares_its_population():
     # cells (distinct_cells raises otherwise).
     pools = distinct_cells(document)
     shared = {
-        cell["population"]: len(cell["paths"])
-        for cell in pools[("r7", "people")]
+        (cell["population"], cell["unit"]): len(cell["paths"])
+        for cell in pools["r7"]
     }
-    assert shared == {"r7_frame/admitted": 2, "r7_frame/flagged_supported": 2}
+    assert shared == {
+        ("r7_frame/admitted", "people"): 2,
+        ("r7_frame/flagged_supported", "people"): 2,
+        ("r7_frame/flagged_supported", "worker_records"): 2,
+    }
     # Every other population is published once.
-    for pool, cells in pools.items():
-        if pool[0] != "r7":
-            assert all(len(cell["paths"]) == 1 for cell in cells), pool
+    for family, cells in pools.items():
+        if family != "r7":
+            assert all(len(cell["paths"]) == 1 for cell in cells), family
+    # Track M's flagged people include linked beneficiaries, so its flagged
+    # worker-record count is not published (round 3).
+    (minimum,) = [
+        r
+        for r in document["results"]
+        if r["result"] == "track_m_minimum_benefit"
+    ]
+    flagged = minimum["readings"]["scored"]["flagged_supported"]
+    assert "worker_records" not in flagged
 
 
 def test_no_published_count_is_a_small_cell():
@@ -256,14 +269,14 @@ def _rows(*cells):
 
 def test_declared_population_enters_once_and_must_match():
     same = _rows((9750, 1.0, "denominator"), (9750, 1.0, "denominator"))
-    assert len(distinct_cells(same)[("projection", "people")]) == 1
+    assert len(distinct_cells(same)["projection"]) == 1
     with pytest.raises(ValueError, match="does not match"):
         distinct_cells(_rows((9750, 1.0, "d"), (9741, 1.0, "d")))
     with pytest.raises(ValueError, match="does not match"):
         distinct_cells(_rows((9750, 1.0, "d"), (9750, 2.0, "d")))
     # Different populations never merge, even with equal count and weight.
     twins = _rows((9750, 1.0, "a"), (9750, 1.0, "b"), (19491, 1.0, "c"))
-    assert len(distinct_cells(twins)[("projection", "people")]) == 3
+    assert len(distinct_cells(twins)["projection"]) == 3
     assert 9 in {v["value"] for v in differencing_violations(twins)}
     unweighted = _invented([40, 40, 85])
     assert [v["value"] for v in differencing_violations(unweighted)] == [5]
@@ -299,8 +312,23 @@ def test_enumeration_is_order_independent(base, small, rnd):
     assert values == again and small in values
 
 
-def test_different_families_and_units_are_not_pooled():
-    document = {
+def test_units_pool_together_but_families_do_not():
+    # People and worker records of one family are differenced together:
+    # 21 people minus 15 records is a violation (round 3's Track M route).
+    same_family = {
+        "results": [
+            {
+                "result": "cola",
+                "waves": {"2011": {"people": 21, "population": "a"}},
+            },
+            {
+                "result": "fra68",
+                "w": {"worker_records": 15, "population": "c"},
+            },
+        ]
+    }
+    assert [v["value"] for v in differencing_violations(same_family)] == [6]
+    other_family = {
         "results": [
             {
                 "result": "cola",
@@ -310,13 +338,9 @@ def test_different_families_and_units_are_not_pooled():
                 "result": "r7_sharing",
                 "flagged": {"people": 12, "population": "b"},
             },
-            {
-                "result": "cola",
-                "w": {"worker_records": 15, "population": "c"},
-            },
         ]
     }
-    assert differencing_violations(document) == []
+    assert differencing_violations(other_family) == []
 
 
 # ---- regressions for review round 1's three routes ----
@@ -393,6 +417,12 @@ def test_round1_row_and_role_routes_are_present_raw_and_gone_public():
     assert paths["deceased_auxiliary_basis"] == "ten or more"
     assert paths["positive_survivor_payment"] == "ten or more"
     assert paths["own_record"] == "none"
+    # One record per person: the fact is published, not a second count.
+    flagged = public["results"][0]["waves"]["2011"]["flagged_supported"]
+    assert flagged["one_worker_record_per_person"] is True
+    assert "worker_records" not in flagged
+    assert "seed_cohort_weight_share" in flagged
+    assert "admitted_weight_share" not in flagged
 
 
 def _reading(records, flagged):
@@ -447,6 +477,11 @@ def test_round1_track_m_reading_route_is_present_raw_and_gone_public():
     assert 7 in leaked
     public = minimum_view(raw)
     assert "admitted" not in public["readings"]["d430_sensitivity"]
+    # Round 3: people (with linked beneficiaries) minus flagged records
+    # would bound a withheld cell, so the flagged record count is dropped.
+    scored_flagged = public["readings"]["scored"]["flagged_supported"]
+    assert scored_flagged["people"] == 34
+    assert "worker_records" not in scored_flagged
     assert public["readings"]["scored"]["admitted"]["worker_records"] == 2391
     assert public["readings"]["d430_sensitivity"]["flagged_supported"] == (
         "withheld"

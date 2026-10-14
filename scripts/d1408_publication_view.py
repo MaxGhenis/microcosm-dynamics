@@ -72,10 +72,30 @@ def path_category(cell) -> str:
     raise ValueError(f"unrecognized path cell: {cell!r}")
 
 
-def flagged_cell(cell, population: str) -> dict:
-    """Keep a flagged subtotal's count, records, weight and share only."""
+def flagged_cell(
+    cell, population: str, *, records: bool = True, share_key=None
+) -> dict:
+    """Keep a flagged subtotal's count, records, weight and share only.
+
+    ``records=False`` drops the worker-record count where people and
+    records are not one-to-one, so their difference would carry
+    information about a withheld path. ``share_key`` renames the share to
+    name its denominator.
+    """
     keys = ("people", "worker_records", "weight", "admitted_weight_share")
     out = {key: cell[key] for key in keys if key in cell}
+    if not records:
+        out.pop("worker_records", None)
+    elif (
+        isinstance(out.get("people"), int)
+        and out.get("worker_records") == out["people"]
+    ):
+        # One flagged worker record per person: publish that fact, not a
+        # second count of the same group in another unit.
+        out.pop("worker_records")
+        out["one_worker_record_per_person"] = True
+    if share_key is not None and "admitted_weight_share" in out:
+        out[share_key] = out.pop("admitted_weight_share")
     out["population"] = population
     return out
 
@@ -196,9 +216,13 @@ def minimum_view(result) -> dict:
         supported = reading["supported"]
         public = {
             "flagged_supported": (
+                # Track M's people include linked beneficiaries of flagged
+                # owners, so people minus worker records would bound the
+                # withheld linked-auxiliary cell; only people are published.
                 flagged_cell(
                     supported["all_flagged_evaluations"],
                     "track_m/scored/flagged_supported",
+                    records=False,
                 )
                 if name == "scored"
                 else WITHHELD
@@ -344,7 +368,9 @@ def projection_view(result) -> dict:
             "seed_cohort_weight": counts["seed_cohort_weight"],
             "flagged_supported": (
                 flagged_cell(
-                    flagged, f"{result['result']}/{wave}/flagged_supported"
+                    flagged,
+                    f"{result['result']}/{wave}/flagged_supported",
+                    share_key="seed_cohort_weight_share",
                 )
                 if flagged is not None
                 else {"people": 0, "worker_records": 0, "weight": 0}
@@ -456,7 +482,11 @@ def _is_count(value) -> bool:
 
 
 def distinct_cells(document):
-    """Pool positive counts by family and unit, one entry per population.
+    """Pool positive counts by family, one entry per population and unit.
+
+    People and worker-record counts share a pool: a difference between a
+    group's people and its records can carry information (each owner has
+    one own record), so the sweep combines them too.
 
     Every positive count must declare the population it measures. A
     population republished in several cells (the R7 frame in R7 and cost
@@ -474,11 +504,12 @@ def distinct_cells(document):
             continue
         if not isinstance(population, str) or not population:
             raise ValueError(f"published count without a population: {path}")
-        cells = pools.setdefault((family, unit), {})
+        cells = pools.setdefault(family, {})
         cell = cells.setdefault(
-            population,
+            (population, unit),
             {
                 "population": population,
+                "unit": unit,
                 "value": int(value),
                 "weight": weight,
                 "paths": [],
@@ -486,7 +517,8 @@ def distinct_cells(document):
         )
         if cell["value"] != int(value) or cell["weight"] != weight:
             raise ValueError(
-                f"population {population} does not match across cells: "
+                f"population {population} ({unit}) does not match across "
+                "cells: "
                 f"{cell['paths'][0]} has {cell['value']} (weight "
                 f"{cell['weight']}), {path} has {int(value)} (weight {weight})"
             )
@@ -524,7 +556,8 @@ def reachable_sums(values):
 
 def differencing_violations(document):
     """Every signed combination of distinct published counts, pooled by
-    population family and unit, that equals one through nine.
+    population family (people and worker records together), that equals
+    one through nine.
 
     No subset size limit: all 3**n sign patterns over the pool's distinct
     populations are covered. This over-approximates real set differencing
@@ -532,17 +565,17 @@ def differencing_violations(document):
     A single published count of one through nine is a violation too.
     """
     violations = []
-    for (family, unit), cells in distinct_cells(document).items():
+    for family, cells in distinct_cells(document).items():
         reached = reachable_sums([cell["value"] for cell in cells])
         for total in range(1, 10):
             if total in reached:
                 violations.append(
                     {
                         "family": family,
-                        "unit": unit,
                         "value": total,
                         "terms": [
-                            ("+" if sign > 0 else "-") + cells[i]["paths"][0]
+                            ("+" if sign > 0 else "-")
+                            + f"{cells[i]['unit']}:{cells[i]['paths'][0]}"
                             for i, sign in reached[total]
                         ],
                     }
