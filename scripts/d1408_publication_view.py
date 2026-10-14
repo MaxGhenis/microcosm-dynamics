@@ -7,14 +7,13 @@ subtotals let a reader recover groups of fewer than ten people by
 subtraction. The public view therefore keeps, per result and wave, one
 flagged subtotal and the admitted denominators; it reports each payment
 path only as "none", "fewer than ten", "ten or more" or "withheld"; and
-``differencing_violations`` enumerates every signed combination of up to
-four published counts within a population family and refuses any that
-equals one through nine.
+``differencing_violations`` sweeps every signed combination of the
+distinct published counts within a population family, with no size limit,
+and refuses any that equals one through nine.
 """
 
 from __future__ import annotations
 
-import itertools
 import math
 
 SMALL = "<10"
@@ -48,7 +47,7 @@ PEOPLE_KEYS = frozenset(
 RECORD_KEYS = frozenset({"worker_records", "admitted_worker_records"})
 # Copied verbatim from the committed artifact; already public.
 EXEMPT_KEYS = frozenset({"committed_admitted_denominators"})
-MAX_TERMS = 4
+MAX_CELLS = 20
 
 
 def path_category(cell) -> str:
@@ -344,8 +343,21 @@ def public_view(result) -> dict:
     return VIEWS[result["result"]](result)
 
 
+WEIGHT_KEYS = ("weight", "admitted_weight", "weight_upper_bound")
+
+
 def published_counts(document):
     """Yield (family, unit, path, value) for every published integer count."""
+    for family, unit, path, value, _ in published_cells(document):
+        yield family, unit, path, value
+
+
+def published_cells(document):
+    """Yield (family, unit, path, value, weight) for every published count.
+
+    ``weight`` is the summed weight published beside the count in the same
+    cell, or None.
+    """
     for index, result in enumerate(document["results"]):
         family = FAMILIES[result["result"]]
         yield from _walk(result, family, (f"results[{index}]",))
@@ -353,13 +365,22 @@ def published_counts(document):
 
 def _walk(value, family, path):
     if isinstance(value, dict):
+        weight = next(
+            (
+                value[key]
+                for key in WEIGHT_KEYS
+                if isinstance(value.get(key), (int, float))
+                and not isinstance(value.get(key), bool)
+            ),
+            None,
+        )
         for key, item in value.items():
             if key in EXEMPT_KEYS:
                 continue
             here = path + (key,)
             if (key in PEOPLE_KEYS or key in RECORD_KEYS) and _is_count(item):
                 unit = "people" if key in PEOPLE_KEYS else "worker_records"
-                yield family, unit, "/".join(here), item
+                yield family, unit, "/".join(here), item, weight
             else:
                 yield from _walk(item, family, here)
     elif isinstance(value, list):
@@ -376,40 +397,76 @@ def _is_count(value) -> bool:
     )
 
 
-def differencing_violations(document, max_terms: int = MAX_TERMS):
-    """Every signed sum of 2..max_terms distinct published counts, with at
-    least one added and one subtracted, that equals one through nine.
+def distinct_cells(document):
+    """Pool positive counts by family and unit, one entry per distinct set.
 
-    Counts are pooled by population family and unit. Cells with equal
-    values are kept distinct, so aliases are enumerated too.
+    A count published again with the same summed weight (a denominator
+    repeated per row, a bound repeated per draw, the same flagged group in
+    R7 and cost ordering) is the same set of people; a subtraction can use
+    it at most once, so it is pooled once. An unweighted count is never
+    merged. Raises if a pool exceeds ``MAX_CELLS``, the bound that keeps
+    the full sweep cheap and reviewable.
     """
     pools = {}
-    for family, unit, path, value in published_counts(document):
-        pools.setdefault((family, unit), []).append((path, int(value)))
+    for family, unit, path, value, weight in published_cells(document):
+        if value <= 0:
+            continue
+        cells = pools.setdefault((family, unit), {})
+        key = (int(value), weight) if weight is not None else (path,)
+        cells.setdefault(key, {"value": int(value), "paths": []})
+        cells[key]["paths"].append(path)
+    out = {}
+    for pool, cells in sorted(pools.items()):
+        if len(cells) > MAX_CELLS:
+            raise ValueError(
+                f"{pool} publishes {len(cells)} distinct counts, more than "
+                f"the {MAX_CELLS} the full differencing sweep is bounded to"
+            )
+        out[pool] = list(cells.values())
+    return out
+
+
+def reachable_sums(values):
+    """Every sum of a subset of ``values`` with signs +1 or -1, exactly.
+
+    Returns {sum: witness}, where the witness lists (index, sign) pairs.
+    This is the full sweep over all 3**n signed subsets, computed by
+    dynamic programming over the sums rather than by listing subsets.
+    """
+    reached = {0: ()}
+    for index, value in enumerate(values):
+        step = {}
+        for total, witness in reached.items():
+            for sign in (1, -1):
+                candidate = total + sign * value
+                if candidate not in reached and candidate not in step:
+                    step[candidate] = witness + ((index, sign),)
+        reached.update(step)
+    return reached
+
+
+def differencing_violations(document):
+    """Every signed combination of distinct published counts, pooled by
+    population family and unit, that equals one through nine.
+
+    No subset size limit: all 3**n sign patterns over the pool's distinct
+    sets are covered. A single published count of one through nine is a
+    violation too.
+    """
     violations = []
-    for (family, unit), cells in sorted(pools.items()):
-        positive = [cell for cell in cells if cell[1] > 0]
-        for size in range(2, max_terms + 1):
-            for combo in itertools.combinations(positive, size):
-                for signs in itertools.product((1, -1), repeat=size):
-                    if 1 not in signs or -1 not in signs:
-                        continue
-                    total = sum(
-                        sign * value
-                        for sign, (_, value) in zip(signs, combo, strict=True)
-                    )
-                    if 0 < total < 10:
-                        violations.append(
-                            {
-                                "family": family,
-                                "unit": unit,
-                                "terms": [
-                                    ("+" if sign > 0 else "-") + path
-                                    for sign, (path, _) in zip(
-                                        signs, combo, strict=True
-                                    )
-                                ],
-                                "value": total,
-                            }
-                        )
+    for (family, unit), cells in distinct_cells(document).items():
+        reached = reachable_sums([cell["value"] for cell in cells])
+        for total in range(1, 10):
+            if total in reached:
+                violations.append(
+                    {
+                        "family": family,
+                        "unit": unit,
+                        "value": total,
+                        "terms": [
+                            ("+" if sign > 0 else "-") + cells[i]["paths"][0]
+                            for i, sign in reached[total]
+                        ],
+                    }
+                )
     return violations

@@ -2,10 +2,15 @@
 
 Verification class: labelled diagnostic publication guard. The committed
 JSON is read as an aggregate artifact; no microdata is opened. The
-invented-input properties show that the enumeration finds every planted
-small difference of up to four published counts, and the regressions
-replay the three differencing routes found in review round 1 (COLA rows,
-nested role subtotals, Track M's two readings) on invented aggregates.
+guarantee is that no signed (+1/-1) combination of distinct published
+counts within a population family and unit, of any size, equals one
+through nine. Each family publishes at most ``MAX_CELLS`` distinct counts,
+so the committed JSON is also checked by listing all 3**n sign patterns
+outright. The invented-input properties show that the sweep finds every
+planted small combination and agrees with brute force, and the
+regressions replay the three differencing routes found in review round 1
+(COLA rows, nested role subtotals, Track M's two readings) on invented
+aggregates.
 """
 
 import itertools
@@ -20,13 +25,16 @@ from hypothesis import strategies as st
 from scripts import d1408_diagnostic
 from scripts.d1408_publication_view import (
     FAMILIES,
+    MAX_CELLS,
     PEOPLE_KEYS,
     RECORD_KEYS,
     differencing_violations,
+    distinct_cells,
     minimum_view,
     path_category,
     projection_view,
     published_counts,
+    reachable_sums,
 )
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -71,20 +79,19 @@ def test_every_published_subtraction_is_zero_negative_or_at_least_ten():
     assert any("admitted_by_row" in path for path in paths)
     assert any("readings/scored" in path for path in paths)
     assert any("readings/d430_sensitivity" in path for path in paths)
-    # Exhaustive enumeration, recomputed here rather than trusted.
-    pools = {}
-    for family, unit, _, value in cells:
-        if value > 0:
-            pools.setdefault((family, unit), []).append(int(value))
-    for (family, unit), values in pools.items():
-        for size in range(2, 5):
-            for combo in itertools.combinations(values, size):
-                for signs in itertools.product((1, -1), repeat=size):
-                    if 1 in signs and -1 in signs:
-                        total = sum(
-                            s * v for s, v in zip(signs, combo, strict=True)
-                        )
-                        assert not 0 < total < 10, (family, unit, combo)
+    # Brute force over every sign pattern of every pool's distinct sets,
+    # recomputed here rather than trusted, and checked against the sweep.
+    pools = distinct_cells(document)
+    assert pools
+    for (family, unit), cells in pools.items():
+        assert len(cells) <= MAX_CELLS
+        values = [cell["value"] for cell in cells]
+        brute = {
+            sum(c * v for c, v in zip(coefs, values, strict=True))
+            for coefs in itertools.product((-1, 0, 1), repeat=len(values))
+        }
+        assert set(reachable_sums(values)) == brute
+        assert not brute & set(range(1, 10)), (family, unit, values)
     assert differencing_violations(document) == []
 
 
@@ -165,15 +172,66 @@ _SPACED = st.lists(
 
 
 @settings(deadline=None, max_examples=200)
-@given(_SPACED, st.integers(1, 9), st.integers(1, 3), st.randoms())
+@given(_SPACED, st.integers(1, 9), st.integers(1, 6), st.randoms())
 def test_planted_small_difference_is_found(base, small, subtrahends, rnd):
-    # A total equal to `small` plus up to three published subtotals.
-    # Distinct published subtotals: a cell is subtracted at most once.
+    # A total equal to `small` plus any number of distinct published
+    # subtotals: the sweep has no size limit.
     parts = rnd.sample(base, min(subtrahends, len(base)))
     counts = base + [small + sum(parts)]
     rnd.shuffle(counts)
     violations = differencing_violations(_invented(counts))
     assert any(v["value"] == small for v in violations)
+    witness = next(v for v in violations if v["value"] == small)
+    assert witness["terms"]
+
+
+@settings(deadline=None, max_examples=300)
+@given(st.lists(st.integers(0, 400), min_size=0, max_size=9))
+def test_sweep_equals_brute_force_over_every_sign_pattern(values):
+    brute = {
+        sum(c * v for c, v in zip(coefs, values, strict=True))
+        for coefs in itertools.product((-1, 0, 1), repeat=len(values))
+    }
+    reached = reachable_sums(values)
+    assert set(reached) == brute
+    for total, witness in reached.items():
+        assert sum(sign * values[i] for i, sign in witness) == total
+        assert len({i for i, _ in witness}) == len(witness)
+
+
+def test_pool_beyond_the_bound_refuses():
+    counts = [10 * (k + 1) for k in range(MAX_CELLS + 1)]
+    with pytest.raises(ValueError, match="full differencing sweep"):
+        differencing_violations(_invented(counts))
+    assert differencing_violations(_invented(counts[:MAX_CELLS])) == []
+
+
+def test_repeated_set_is_pooled_once_and_distinct_sets_are_not():
+    def doc(weights):
+        return {
+            "results": [
+                {
+                    "result": "cola",
+                    "rows": {
+                        name: {"admitted_people": 9750, "admitted_weight": w}
+                        for name, w in weights.items()
+                    },
+                    "flagged": {"people": 9741},
+                }
+            ]
+        }
+
+    same = distinct_cells(doc({"R0": 1.0, "R1": 1.0}))
+    assert len(same[("projection", "people")]) == 2
+    assert (
+        differencing_violations(doc({"R0": 1.0, "R1": 1.0}))[0]["value"] == 9
+    )
+    different = distinct_cells(doc({"R0": 1.0, "R1": 2.0}))
+    assert len(different[("projection", "people")]) == 3
+    # Unweighted equal counts may be different people: never merged.
+    unweighted = _invented([40, 40, 85])
+    assert len(distinct_cells(unweighted)[("projection", "people")]) == 3
+    assert [v["value"] for v in differencing_violations(unweighted)] == [5]
 
 
 @settings(deadline=None, max_examples=200)

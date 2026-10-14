@@ -58,7 +58,7 @@ denominators.
 | Fewer than ten underlying people | `<10` for the whole cell, including weights, shares and changes |
 | Overlapping subtotal revealing a small complementary group | `suppressed_complementary`, including the subtotal's weight and changes |
 | Publication | Per result and wave, one flagged subtotal and the admitted denominators; payment paths only as none, fewer than ten, ten or more, or withheld; Track M row changes as a zero summary (a nonzero change refuses assembly); no row attribution subtotals and no sensitivity record total |
-| Any signed combination of up to four published counts equal to 1–9 | Assembly refuses; the committed JSON is tested for it |
+| Any signed (+1/-1) combination of distinct published counts in a population family, of any size, equal to 1–9 | Assembly refuses; the committed JSON is tested for it by brute force over every sign pattern |
 | Restricted files, comparator fields and external benchmark changes | Refused; no benchmark is needed or reported |
 
 ## Invariants and executed tests
@@ -70,8 +70,8 @@ claim. The publication fixture names the six authorized artifact paths
 but never reads those artifacts, and the differencing tests read the
 committed diagnostic JSON, the erratum and the first-estimates artifact as
 aggregate artifacts. The repository's static tier policy classifies these
-thirty-three cases as `artifact`; the other seventy-two cases are `unit`.
-There are 105 cases across ten modules.
+thirty-six cases as `artifact`; the other seventy-two cases are `unit`.
+There are 108 cases across ten modules.
 
 ### Shared convention and accounting
 
@@ -171,8 +171,15 @@ These tests are in `tests/test_d1408_sharing.py` (thirteen cases).
 ### Publication schema and differencing
 
 These tests are in `tests/test_d1408_publication_differencing.py`
-(twenty cases). `scripts/d1408_publication_view.py` reduces each private
-aggregate to the public schema and enumerates differences. Review round 1
+(twenty-three cases). `scripts/d1408_publication_view.py` reduces each
+private aggregate to the public schema and sweeps differences: it computes
+every sum reachable by adding, subtracting or omitting each distinct
+published count in a family (all 3**n sign patterns, by dynamic
+programming over the sums), refuses any in 1–9, and refuses a family that
+publishes more than 20 distinct counts, the bound that keeps the sweep and
+its brute-force check cheap. A count republished with the same summed
+weight (a denominator repeated per row, a bound repeated per draw) is the
+same set and enters once; an unweighted count is never merged. Review round 1
 found three routes in an earlier, wider schema: nested attribution
 subtotals across COLA rows R0 and R5, nested role subtotals (deceased
 basis versus positive survivor payment), and Track M's two readings'
@@ -180,15 +187,17 @@ admitted record totals. The public schema publishes none of them.
 
 | Invariant | Exact tests |
 | --- | --- |
-| In the committed JSON, every signed combination of two to four distinct published counts, pooled by population family (COLA with FRA 68, R7 with cost ordering) and unit, across every row, wave and both Track M readings, is zero, negative or at least ten. The test recomputes the enumeration independently and checks that the walker saw every count. | `test_every_published_subtraction_is_zero_negative_or_at_least_ten` |
+| In the committed JSON, no signed combination of distinct published counts, pooled by population family (COLA with FRA 68, R7 with cost ordering) and unit, across every row, wave and both Track M readings, equals 1–9. The test lists all 3**n sign patterns per pool by brute force, checks they equal the sweep, and checks that the walker saw every count and no pool exceeds 20. | `test_every_published_subtraction_is_zero_negative_or_at_least_ten` |
+| The sweep equals brute force over every sign pattern, and each witness sums to its value using each set once; a pool over the bound refuses; a repeated set enters once and distinct sets with equal counts do not merge. | `test_sweep_equals_brute_force_over_every_sign_pattern`, `test_pool_beyond_the_bound_refuses`, `test_repeated_set_is_pooled_once_and_distinct_sets_are_not` |
 | No published count is 1–9; every family is pooled. | `test_no_published_count_is_a_small_cell`, `test_every_family_is_pooled` |
 | The only exempt counts, first estimates' per-draw admitted denominators, appear in the committed artifact. | `test_exempt_denominators_are_copied_from_the_committed_artifact` |
 | Every count or weight in the erratum's results table appears in the JSON. | `test_erratum_table_publishes_nothing_beyond_the_json` |
-| A planted total equal to 1–9 plus up to three distinct published subtotals is always found; counts spaced by multiples of ten never violate; the result is order independent; families and units are not pooled together. | `test_planted_small_difference_is_found`, `test_counts_spaced_by_at_least_ten_never_violate`, `test_enumeration_is_order_independent`, `test_different_families_and_units_are_not_pooled` |
+| A planted total equal to 1–9 plus up to six distinct published subtotals is always found; counts spaced by multiples of ten never violate; the result is order independent; families and units are not pooled together. | `test_planted_small_difference_is_found`, `test_counts_spaced_by_at_least_ten_never_violate`, `test_enumeration_is_order_independent`, `test_different_families_and_units_are_not_pooled` |
 | Each round-1 route leaks in the wide schema and is absent from the public view. | `test_round1_row_and_role_routes_are_present_raw_and_gone_public`, `test_round1_track_m_reading_route_is_present_raw_and_gone_public` |
 | A nonzero Track M change refuses rather than being summarized as zero; path categories never carry a count; assembly refuses a document with a small difference. | `test_nonzero_track_m_change_is_refused_not_summarized`, `test_path_category_never_publishes_a_count`, `test_assembler_refuses_a_document_with_a_small_difference` |
 
-Mutation proof: limiting combinations to pairs, pooling worker records
+Mutation proof: dropping subtraction from the sweep, merging unweighted
+counts, removing the pool bound, pooling worker records
 with people, keeping the sensitivity record total, keeping row
 attribution subtotals, letting a path category return `<10`, and skipping
 row denominators in the walker each fail at least one of these tests.
