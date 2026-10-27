@@ -2744,6 +2744,39 @@ def test_a_zero_push_boundary_needs_a_created_branch(
         registry.base_registry(repository)
 
 
+@pytest.mark.parametrize("digits", [40, 64])
+def test_a_push_that_creates_its_branch_compares_with_its_fork_point(
+    tmp_path, no_ci_env, monkeypatch, digits
+):
+    """A push that creates its branch sends an all-zero ``before``, which
+    has 64 digits in a SHA-256 repository, with ``created: true``. The
+    branch is then compared with the commit it forked from: not with its
+    own parent, and not with the base branch's later tip."""
+    repository = init_repository(tmp_path)
+    first = registered(["candidate"])
+    fork = commit_registry(repository, first, "registry")
+    git(repository, "checkout", "-q", "-b", "feature")
+    second = copy.deepcopy(first)
+    second["entries"].append(make_entry(1, ["s_c:2099"]))
+    commit_registry(repository, second, "append")
+    emptied = copy.deepcopy(first)
+    emptied["entries"] = []
+    commit_registry(repository, emptied, "delete everything")
+    git(repository, "checkout", "-q", "master")
+    write(repository, "notes.txt", "a later commit of the base branch")
+    commit_all(repository, "later base work")
+    git(repository, "checkout", "-q", "feature")
+    event = tmp_path / "event.json"
+    event.write_text(
+        json.dumps({"before": "0" * digits, "created": True}),
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("GITHUB_EVENT_NAME", "push")
+    monkeypatch.setenv("GITHUB_EVENT_PATH", str(event))
+    assert registry.base_commit(repository) == fork
+    assert registry.base_registry(repository) == first
+
+
 @pytest.mark.parametrize("event_name", ["push", "pull_request"])
 def test_an_unset_event_path_raises(
     tmp_path, no_ci_env, monkeypatch, event_name
